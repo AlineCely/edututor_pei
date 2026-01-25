@@ -12,19 +12,33 @@ export function useAlunos() {
     const loadData = async () => {
         try {
             setLoading(true);
+            setError(null);
+
             const [alunosData, familiasData, escolasData] = await Promise.all([
                 AlunoService.getAll(),
                 FamiliaService.getAll(),
                 EscolaService.getAll()
             ]);
 
-            setAlunos(alunosData);
-            setFamilias(familiasData);
-            setEscolas(escolasData);
-            setError(null);
-        } catch (err) {
-            setError('Erro ao carregar dados');
-            console.error(err);
+            setAlunos(alunosData || []);
+            setFamilias(familiasData || []);
+            setEscolas(escolasData || []);
+        } catch (err: any) {
+            console.error('Erro ao carregar dados:', err);
+            
+            // Mensagem de erro mais específica
+            if (err.message === 'Failed to fetch') {
+                setError('Erro de conexão. Verifique se o servidor está rodando e acessível.');
+            } else if (err.message?.includes('JWT')) {
+                setError('Erro de autenticação. Verifique se está logado.');
+            } else {
+                setError(`Erro ao carregar dados: ${err.message || 'Erro desconhecido'}`);
+            }
+            
+            // Limpar dados em caso de erro
+            setAlunos([]);
+            setFamilias([]);
+            setEscolas([]);
         } finally {
             setLoading(false);
         }
@@ -35,8 +49,11 @@ export function useAlunos() {
             const novoAluno = await AlunoService.create(alunoData);
             await loadData(); // Recarrega os dados
             return novoAluno;
-        } catch (err) {
-            setError('Erro ao criar aluno');
+        } catch (err: any) {
+            const errorMsg = err.message === 'Failed to fetch' 
+                ? 'Erro de conexão ao criar aluno'
+                : 'Erro ao criar aluno';
+            setError(errorMsg);
             throw err;
         }
     };
@@ -46,8 +63,11 @@ export function useAlunos() {
             const alunoAtualizado = await AlunoService.update(id, alunoData);
             await loadData(); // Recarrega os dados
             return alunoAtualizado;
-        } catch (err) {
-            setError('Erro ao atualizar aluno');
+        } catch (err: any) {
+            const errorMsg = err.message === 'Failed to fetch'
+                ? 'Erro de conexão ao atualizar aluno'
+                : 'Erro ao atualizar aluno';
+            setError(errorMsg);
             throw err;
         }
     };
@@ -56,8 +76,11 @@ export function useAlunos() {
         try {
             await AlunoService.delete(id);
             await loadData(); // Recarrega os dados
-        } catch (err) {
-            setError('Erro ao excluir aluno');
+        } catch (err: any) {
+            const errorMsg = err.message === 'Failed to fetch'
+                ? 'Erro de conexão ao excluir aluno'
+                : 'Erro ao excluir aluno';
+            setError(errorMsg);
             throw err;
         }
     };
@@ -67,8 +90,11 @@ export function useAlunos() {
             const novaFamilia = await FamiliaService.create(familiaData);
             await loadData(); // Recarrega os dados
             return novaFamilia;
-        } catch (err) {
-            setError('Erro ao criar família');
+        } catch (err: any) {
+            const errorMsg = err.message === 'Failed to fetch'
+                ? 'Erro de conexão ao criar família'
+                : 'Erro ao criar família';
+            setError(errorMsg);
             throw err;
         }
     };

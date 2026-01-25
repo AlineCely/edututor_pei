@@ -17,6 +17,7 @@ export default function Input({ label, name, type = "text", value, onChange, req
         name={name}
         onChange={onChange}
         required={required}
+        readOnly={!onChange}
         style={{
           padding: "10px",
           borderRadius: "8px",

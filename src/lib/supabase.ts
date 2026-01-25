@@ -1,15 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = "https://vyugkgrmabfdlabixij.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5dWdrZ3JtYWJmZGpsYWJpeGlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5OTM5ODAsImV4cCI6MjA4NDU2OTk4MH0.m1ZY9MDjjh7IIcn6Q4kPfelwnCOpgD2odGwEfGJRqhM";
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+console.log(
+  'SUPABASE URL:', import.meta.env.VITE_SUPABASE_URL,
+  'KEY EXISTS:', !!import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 // Tipos baseados no seu schema
 export interface Aluno {
   Aluno_ID: number;
   Familia_ID: number | null;
-  Escola_ID: number | null;
+  // Escola_ID: number | null;
   Nome: string;
   Data_nascimento: string | null;
   Serie: string | null;
@@ -50,3 +55,4 @@ export interface FamiliaFormData {
   Email: string;
   Endereco: string;
 }
+

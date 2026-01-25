@@ -19,9 +19,11 @@ export default function AppRoutes() {
                 <Route path="/alunos" element={<Alunos />} />
                 <Route path="/alunos/novo" element={<AlunoForm />} />
                 <Route path="/alunos/:id" element={<AlunoForm />} />
+                <Route path="/alunos/:id/editar" element={<AlunoForm />} />
                 <Route path="/agenda" element={<Agenda />} />
                 <Route path="/profissionais" element={<Profissionais />} />
                 <Route path="/profissionais/novo" element={<ProfissionalForm />} />
+                <Route path="/profissionais/:id/editar" element={<ProfissionalForm />} />
                 <Route path="/disciplina" element={<Disciplinas />} />
                 <Route path="/anamnese" element={<Anamnese />} />
                 <Route path="/pei" element={<PEI />} />

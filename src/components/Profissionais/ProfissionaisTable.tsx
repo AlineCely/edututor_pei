@@ -1,24 +1,84 @@
+import { useState, useEffect } from "react";
 import Pagination from "../Table/Pagination";
-// import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabase";
 
 interface Profissional {
-  nome: string;
-  disciplina: string;
-  telefone: string;
-  email: string;
-  registro: string;
+  Professor_ID: number;  // Esta é a chave principal, não "id"
+  Especialidades: string;
+  Biografia: string;
+  Formacao: string;
+  Experiencia: string;
+  Valor_hora: number;
+  Media: number | null;
+  Total_aulas: number;
+  Registro_profissional: string;
+  Usuarios: {
+    nome: string;
+    email: string;
+    telefone: string;
+    perfil: string;
+  }[];
 }
 
-const profissionais: Profissional[] = Array.from({ length: 10 }).map(() => ({
-  nome: "Ana Clara",
-  disciplina: "Informática",
-  telefone: "94 98130-8015",
-  email: "gestor@edututorpei.com.br",
-  registro: "20000"
-}));
+  // const profissionais: Profissional[] = Array.from({ length: 10 }).map(() => ({
+  //   nome: "Ana Clara",
+  //   disciplina: "Informática",
+  //   telefone: "94 98130-8015",
+  //   email: "gestor@edututorpei.com.br",
+  //   registro: "20000"
+  // }));
 
 export default function ProfissionaisTable() {
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
+  const [profissionais, setProfissionais] = useState<Profissional[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // 🔹 Carregar profissionais do banco de dados
+  useEffect(() => {
+    async function carregarProfissionais() {
+      try {
+        const { data, error } = await supabase
+          .from("Professores")
+          .select(`
+            Professor_ID,
+            Especialidades,
+            Biografia,
+            Formacao,
+            Experiencia,
+            Valor_hora,
+            Media,
+            Total_aulas,
+            Registro_profissional,
+            Usuarios (
+              nome,
+              email,
+              telefone,
+              perfil
+            )
+          `)
+          .order("Professor_ID", { ascending: true });
+
+        if (error) throw error;
+
+        setProfissionais(data || []);
+      } catch (error) {
+        console.error("Erro ao carregar profissionais:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    carregarProfissionais();
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: "center", padding: "20px" }}>
+        Carregando profissionais...
+      </div>
+    );
+  }
 
   return (
     <div
@@ -51,13 +111,13 @@ export default function ProfissionaisTable() {
         </thead>
 
         <tbody>
-          {profissionais.map((p, index) => (
-            <tr key={index} style={{ borderBottom: "1px solid #f1f1f1", color: "#777" }}>
-              <td style={{ padding: "12px" }}>{p.nome}</td>
-              <td>{p.disciplina}</td>
-              <td>{p.telefone}</td>
-              <td>{p.email}</td>
-              <td>{p.registro}</td>
+          {profissionais.map((prof) => (
+            <tr key={prof.Professor_ID} style={{ borderBottom: "1px solid #f1f1f1", color: "#777" }}>
+              <td style={{ padding: "12px" }}>{prof.Usuarios?.[0]?.nome || "-"}</td>
+              <td>{prof.Especialidades || "-"}</td>
+              <td>{prof.Usuarios?.[0]?.telefone || "-"}</td>
+              <td>{prof.Usuarios?.[0]?.email || "-"}</td>
+              <td>{prof.Registro_profissional || "-"}</td>
               <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
                 <button
                   style={{
@@ -73,6 +133,7 @@ export default function ProfissionaisTable() {
                     transition: "all 0.2s",
                     color: "#374151"
                   }}
+                  onClick={() => navigate(`/profissionais/${prof.Professor_ID}/editar`)}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = "#f3f4f6";
                     e.currentTarget.style.borderColor = "#9ca3af";
@@ -98,6 +159,7 @@ export default function ProfissionaisTable() {
                     transition: "all 0.2s",
                     color: "#374151"
                   }}
+                  onClick={() => navigate(`/profissionais/${prof.Professor_ID}/editar`)}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = "#f3f4f6";
                     e.currentTarget.style.borderColor = "#9ca3af";
