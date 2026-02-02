@@ -8,11 +8,11 @@ interface Props {
 
 export default function DashboardLayout({ children }: Props) {
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
+    <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       <Sidebar />
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <Header />
-        <main style={{ padding: "24px" }}>{children}</main>
+        <main style={{ flex: 1, padding: "24px", overflowY: "auto",  }}>{children}</main>
       </div>
     </div>
   );

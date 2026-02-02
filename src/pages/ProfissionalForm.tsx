@@ -6,6 +6,18 @@ import Section from "../components/Form/Section";
 import Select from "../components/Form/Select";
 import { supabase } from "../lib/supabase";
 
+/* =======================
+   TIPAGENS
+======================= */
+
+interface Usuario {
+    Usuario_ID?: number;
+    Nome: string;
+    Email: string;
+    Telefone: string;
+    Tipo: string;
+}
+
 interface ProfessorData {
     Professor_ID: string;
     Registro_profissional: string;
