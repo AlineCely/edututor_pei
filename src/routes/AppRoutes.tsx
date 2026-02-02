@@ -8,7 +8,6 @@ import AlunoForm from "../pages/AlunoForm";
 import Profissionais from "../pages/Profissionais";
 import ProfissionalForm from "../pages/ProfissionalForm";
 import Disciplinas from "../pages/Disciplinas";
-import Anamnese from "../pages/Anamnese";
 import PEI from "../pages/PEI";
 import FolhasDeRegistro from "../pages/FolhasDeRegistro";
 import Relatorios from "../pages/Relatorios";
@@ -88,14 +87,6 @@ export default function AppRoutes() {
                     element={
                         <RequireAuth allowedRoles={["GESTOR"]}>
                             <Disciplinas />
-                        </RequireAuth>
-                    }
-                />
-                <Route
-                    path="/anamnese"
-                    element={
-                        <RequireAuth allowedRoles={["GESTOR", "PROFISSIONAL"]}>
-                            <Anamnese />
                         </RequireAuth>
                     }
                 />

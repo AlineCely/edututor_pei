@@ -43,7 +43,6 @@ export default function Sidebar() {
     { name: "Alunos", path: "/alunos", roles: ["GESTOR", "PROFISSIONAL"], icon: <FaUsers /> },
     { name: "Profissionais", path: "/profissionais", roles: ["GESTOR"], icon: <FaUserMd /> },
     { name: "Disciplina", path: "/disciplina", roles: ["GESTOR"], icon: <FaBook /> },
-    { name: "Anamnese", path: "/anamnese", roles: ["GESTOR", "PROFISSIONAL"], icon: <FaFileMedical /> },
     { name: "PEI", path: "/pei", roles: ["GESTOR", "PROFISSIONAL"], icon: <FaClipboardList /> },
     { name: "Folhas de registro", roles: ["GESTOR", "PROFISSIONAL"], path: "/folhas-registro", icon: <FaFileAlt /> },
     { name: "Relatórios", path: "/relatorios", roles: ["GESTOR"], icon: <FaChartBar /> }
@@ -64,7 +63,7 @@ export default function Sidebar() {
     >
       <div style={{ textAlign: "center", marginBottom: "2px" }}>
         <img
-          src="../../src/image/logo.jpeg"
+          src="../src/image/logo.jpeg"
           alt="Logo EduTutor"
           style={{ width: "150px", height: "auto" }}
         />
