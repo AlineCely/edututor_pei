@@ -64,7 +64,7 @@ export default function Sidebar() {
     >
       <div style={{ textAlign: "center", marginBottom: "2px" }}>
         <img
-          src="../../src/image/logo.jpeg"
+          src="../../../src/image/logo.jpeg"
           alt="Logo EduTutor"
           style={{ width: "150px", height: "auto" }}
         />

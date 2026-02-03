@@ -12,18 +12,9 @@ export function RequireAuth({
 }) {
   const { user, loading } = useAuth();
 
-  // 🔒 ESPERA o Supabase responder
-  if (loading) {
-    return <p>Carregando...</p>;
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (!allowedRoles.includes(user.role)) {
-    return <h2>Acesso negado</h2>;
-  }
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!allowedRoles.includes(user.role)) return <h2>Acesso negado</h2>;
 
   return children;
 }

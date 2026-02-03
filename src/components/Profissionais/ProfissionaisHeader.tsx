@@ -1,12 +1,16 @@
 import { useNavigate } from "react-router-dom";
 
-export default function ProfissionaisHeader() {
+interface Props {
+  total: number;
+}
+
+export default function ProfissionaisHeader({ total }: Props) {
 const navigate = useNavigate();
 
   return (
     <div style={{ marginBottom: "24px" }}>
       <h1>Gestão de Profissionais</h1>
-      <p style={{ color: "#666" }}>8 profissional(is) cadastrado(s)</p>
+      <p style={{ color: "#666" }}>{total} profissional(s) cadastrado(s)</p>
 
       <div
         style={{
