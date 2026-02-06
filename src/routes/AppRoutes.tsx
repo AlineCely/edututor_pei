@@ -8,10 +8,20 @@ import AlunoForm from "../pages/AlunoForm";
 import Profissionais from "../pages/Profissionais";
 import ProfissionalForm from "../pages/ProfissionalForm";
 import Disciplinas from "../pages/Disciplinas";
+import DisciplinasForm from "../pages/DisciplinasForm";
 import PEI from "../pages/PEI";
 import FolhasDeRegistro from "../pages/FolhasDeRegistro";
 import Relatorios from "../pages/Relatorios";
 import Agenda from "../pages/Agenda";
+import Escolas from "../pages/Escolas";
+import EscolasForm from "../pages/EscolasForm";
+import Usuarios from "../pages/Usuarios";
+import UsuariosForm from "../pages/UsuariosForm";
+import FamiliasForm from "../pages/FamiliasForm";
+import Familias from "../pages/Familias";
+import Trumas from "../pages/Turmas";
+import TurmasForm from "../pages/TurmasForm";
+import Plataformas from "../pages/Plataformas";
 
 export default function AppRoutes() {
     return (
@@ -23,6 +33,70 @@ export default function AppRoutes() {
                     element={
                         <RequireAuth allowedRoles={["GESTOR", "PROFISSIONAL"]}>
                             <Dashboard />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/plataformas"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <Plataformas />
+                        </RequireAuth>
+                    }
+                />
+                {/* <Route
+                    path="/plataformas/novo"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <PlataformasForm />
+                        </RequireAuth>
+                    }
+                /> */}
+                <Route
+                    path="/usuarios"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <Usuarios />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/usuarios/novo"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <UsuariosForm />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/usuarios/:id/editar"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <UsuariosForm />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/escolas"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <Escolas />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/escolas/novo"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <EscolasForm />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/escolas/:id/editar"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <EscolasForm />
                         </RequireAuth>
                     }
                 />
@@ -47,6 +121,22 @@ export default function AppRoutes() {
                     element={
                         <RequireAuth allowedRoles={["GESTOR"]}>
                             <AlunoForm />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/familias"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <Familias />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/familias/novo"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <FamiliasForm />
                         </RequireAuth>
                     }
                 />
@@ -83,10 +173,50 @@ export default function AppRoutes() {
                     }
                 />
                 <Route
+                    path="/turmas"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <Trumas />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/turmas/novo"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <TurmasForm />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/turmas/:id/editar"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <TurmasForm />
+                        </RequireAuth>
+                    }
+                />
+                <Route
                     path="/disciplina"
                     element={
                         <RequireAuth allowedRoles={["GESTOR"]}>
                             <Disciplinas />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/disciplinas/novo"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <DisciplinasForm />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/disciplinas/:id/editar"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <DisciplinasForm />
                         </RequireAuth>
                     }
                 />

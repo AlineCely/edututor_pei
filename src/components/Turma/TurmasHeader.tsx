@@ -1,45 +1,55 @@
 import { useNavigate } from "react-router-dom";
-import { FaUsers, FaGraduationCap, FaUserCheck } from "react-icons/fa";
+import { FaUsers, FaCalendarAlt, FaChalkboardTeacher } from "react-icons/fa";
 
-interface AlunosHeaderProps {
-  totalAlunos: number;
-  alunosAtivos: number;
-  alunosPorEscola: { [key: string]: number };
+interface TurmasHeaderProps {
+  totalTurmas: number;
+  turmasAtivas: number;
+  turmasFinalizadas: number;
+  professoresCount: number;
   onSearch: (term: string) => void;
-  onFilterChange: (filter: { status?: string; escola?: string; cid?: string }) => void;
+  onFilterChange: (filter: { status?: string; professor?: string }) => void;
 }
 
-export default function AlunosHeader({ 
-  totalAlunos, 
-  alunosAtivos,
-  alunosPorEscola,
+export default function TurmasHeader({ 
+  totalTurmas, 
+  turmasAtivas,
+  turmasFinalizadas,
+  professoresCount,
   onSearch,
   onFilterChange 
-}: AlunosHeaderProps) {
+}: TurmasHeaderProps) {
   const navigate = useNavigate();
 
   const stats = [
     {
-      label: "Total de Alunos",
-      value: totalAlunos,
+      label: "Total de Turmas",
+      value: totalTurmas,
       icon: <FaUsers style={{ color: "#4F46E5", fontSize: "20px" }} />,
       bgColor: "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)",
       borderColor: "#ddd6fe"
     },
     {
-      label: "Alunos Ativos",
-      value: alunosAtivos,
-      percent: totalAlunos > 0 ? Math.round((alunosAtivos / totalAlunos) * 100) : 0,
-      icon: <FaUserCheck style={{ color: "#059669", fontSize: "20px" }} />,
+      label: "Turmas Ativas",
+      value: turmasAtivas,
+      percent: totalTurmas > 0 ? Math.round((turmasAtivas / totalTurmas) * 100) : 0,
+      icon: <FaCalendarAlt style={{ color: "#059669", fontSize: "20px" }} />,
       bgColor: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)",
       borderColor: "#bbf7d0"
     },
     {
-      label: "Taxa de Atividade",
-      value: totalAlunos > 0 ? `${Math.round((alunosAtivos / totalAlunos) * 100)}%` : "0%",
-      icon: <FaGraduationCap style={{ color: "#0ea5e9", fontSize: "20px" }} />,
+      label: "Turmas Finalizadas",
+      value: turmasFinalizadas,
+      percent: totalTurmas > 0 ? Math.round((turmasFinalizadas / totalTurmas) * 100) : 0,
+      icon: <FaChalkboardTeacher style={{ color: "#0ea5e9", fontSize: "20px" }} />,
       bgColor: "linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)",
       borderColor: "#bae6fd"
+    },
+    {
+      label: "Professores",
+      value: professoresCount,
+      icon: <FaChalkboardTeacher style={{ color: "#d97706", fontSize: "20px" }} />,
+      bgColor: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+      borderColor: "#fcd34d"
     }
   ];
 
@@ -65,19 +75,19 @@ export default function AlunosHeader({
             fontWeight: "600",
             color: "#1f2937"
           }}>
-            Gestão de Alunos
+            Gestão de Turmas
           </h1>
           <p style={{ 
             margin: "4px 0 0", 
             fontSize: "14px", 
             color: "#6b7280" 
           }}>
-            Gerencie os alunos e suas informações
+            Gerencie as turmas e seus professores
           </p>
         </div>
         
         <button
-          onClick={() => navigate("/alunos/novo")}
+          onClick={() => navigate("/turmas/novo")}
           style={{
             padding: "12px 24px",
             borderRadius: "8px",
@@ -102,7 +112,7 @@ export default function AlunosHeader({
           }}
         >
           <span style={{ fontSize: "18px" }}>+</span>
-          Novo Aluno
+          Nova Turma
         </button>
       </div>
 
@@ -153,38 +163,6 @@ export default function AlunosHeader({
             </div>
           </div>
         ))}
-
-        {/* Distribuição por Escola */}
-        <div style={{
-          background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
-          padding: "20px",
-          borderRadius: "12px",
-          border: "1px solid #fcd34d",
-          gridColumn: "span 3 / span 3"
-        }}>
-          <div style={{ fontSize: "14px", color: "#d97706", fontWeight: "600", marginBottom: "12px" }}>
-            Distribuição por Escola
-          </div>
-          <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-            {/* {Object.entries(alunosPorEscola).map(([escola, quantidade], index) => (
-              <div key={index} style={{
-                flex: "1",
-                minWidth: "120px",
-                background: "rgba(255, 255, 255, 0.6)",
-                padding: "12px",
-                borderRadius: "8px",
-                border: "1px solid rgba(251, 191, 36, 0.3)"
-              }}>
-                <div style={{ fontSize: "12px", color: "#92400e", marginBottom: "4px" }}>
-                  {escola || "Sem escola"}
-                </div>
-                <div style={{ fontSize: "20px", fontWeight: "700", color: "#92400e" }}>
-                  {quantidade}
-                </div>
-              </div>
-            ))} */}
-          </div>
-        </div>
       </div>
 
       {/* Filtros e Busca */}
@@ -196,11 +174,11 @@ export default function AlunosHeader({
         {/* Busca */}
         <div>
           <div style={{ fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#374151" }}>
-            Buscar Aluno
+            Buscar Turma
           </div>
           <input
             type="text"
-            placeholder="Digite nome, responsável ou escola..."
+            placeholder="Digite nome da turma ou professor..."
             onChange={(e) => onSearch(e.target.value)}
             style={{ 
               width: "100%",
@@ -223,7 +201,7 @@ export default function AlunosHeader({
           />
         </div>
 
-        {/* Filtro por Status */}
+        {/* Filtro por Status (Ativa/Finalizada) */}
         <div>
           <div style={{ fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#374151" }}>
             Status
@@ -241,70 +219,15 @@ export default function AlunosHeader({
               cursor: "pointer"
             }}
           >
-            <option value="">Todos os status</option>
-            <option value="Ativo">Ativo</option>
-            <option value="Inativo">Inativo</option>
-            <option value="Transferido">Transferido</option>
-            <option value="Formado">Formado</option>
-          </select>
-        </div>
-
-        {/* Filtro por Escola */}
-        <div>
-          <div style={{ fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#374151" }}>
-            Escola
-          </div>
-          <select 
-            onChange={(e) => onFilterChange({ escola: e.target.value || undefined })}
-            style={{ 
-              width: "100%",
-              padding: "12px 16px", 
-              borderRadius: "8px", 
-              border: "1px solid #d1d5db", 
-              backgroundColor: "#fff", 
-              color: "#374151",
-              fontSize: "14px",
-              cursor: "pointer"
-            }}
-          >
-            <option value="">Todas as escolas</option>
-            <option value="São Bento">São Bento</option>
-            <option value="Centro Educacional">Centro Educacional</option>
-            <option value="Vila Nova">Vila Nova</option>
-            <option value="Santa Maria">Santa Maria</option>
-          </select>
-        </div>
-
-        {/* Filtro por CID */}
-        <div>
-          <div style={{ fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#374151" }}>
-            CID
-          </div>
-          <select 
-            onChange={(e) => onFilterChange({ cid: e.target.value || undefined })}
-            style={{ 
-              width: "100%",
-              padding: "12px 16px", 
-              borderRadius: "8px", 
-              border: "1px solid #d1d5db", 
-              backgroundColor: "#fff", 
-              color: "#374151",
-              fontSize: "14px",
-              cursor: "pointer"
-            }}
-          >
-            <option value="">Selecionar CID</option>
-            <option value="F80">F80 - Transtornos específicos da fala e linguagem</option>
-            <option value="F90">F90 - Transtornos hipercinéticos</option>
-            <option value="F84">F84 - Transtornos globais do desenvolvimento</option>
-            <option value="F70">F70 - Retardo mental leve</option>
-            <option value="F71">F71 - Retardo mental moderado</option>
-            <option value="F72">F72 - Retardo mental grave</option>
+            <option value="">Todas as turmas</option>
+            <option value="ativa">Ativas</option>
+            <option value="finalizada">Finalizadas</option>
+            <option value="futura">Futuras</option>
           </select>
         </div>
 
         {/* Botão Exportar */}
-        <div style={{ display: "flex", alignItems: "flex-end", gap: "12px" }}>
+        <div style={{ display: "flex", alignItems: "flex-end" }}>
           <button
             onClick={() => {
               // Função para exportar dados
@@ -338,7 +261,10 @@ export default function AlunosHeader({
             <span>📊</span>
             Exportar
           </button>
+        </div>
 
+        {/* Botão Limpar */}
+        <div style={{ display: "flex", alignItems: "flex-end" }}>
           <button
             onClick={() => {
               onSearch("");

@@ -3,8 +3,10 @@ interface Props {
   name?: string | undefined;
   type?: string;
   value?: string | number;
+  max?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   required?: boolean;
+  disabled?: boolean;
 }
 
 export default function Input({ label, name, type = "text", value, onChange, required = false }: Props) {

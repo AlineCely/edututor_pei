@@ -1,4 +1,7 @@
+import { useNavigate } from "react-router-dom";
+
 export default function DisciplinasHeader() {
+  const navigate = useNavigate();
   return (
     <div style={{ marginBottom: "24px" }}>
       <h1>Gestão de Disciplinas</h1>
@@ -30,6 +33,7 @@ export default function DisciplinasHeader() {
         <div style={{ display: "flex", gap: "12px" }}>
           <button>Exportar</button>
           <button
+            onClick={() => navigate("/disciplinas/novo")}
             style={{
               background: "#2563eb",
               color: "#fff",

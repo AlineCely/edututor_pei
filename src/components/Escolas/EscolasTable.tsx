@@ -2,85 +2,52 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import Pagination from "../Table/Pagination";
-import AlunosHeader from "./AlunosHeader";
-import { toast } from "react-hot-toast";
+// import EscolasHeader from "./EscolasHeader";
 
-interface Aluno {
-    Aluno_ID: number;
-    Nome: string | null;
-    Data_nascimento: string | null;
-    Serie: string | null;
-    Status: string | null;
-    created_at: string;
-    // Relacionamentos
-    Escolas?: {
-        Nome: string;
-    };
-    Familias?: {
-        Nome_responsavel: string;
-        Telefone: string;
-    };
+interface Escola {
+    Escola_ID: number;
+    Nome: string;
+    CNPJ: string;
+    Email: string;
+    Telefone: string;
+    Endereco: string;
+    Status: string;
+    created_at?: string;
+    Plataforma_ID?: number;
 }
 
-export default function AlunosTable() {
+export default function EscolasTable() {
     const navigate = useNavigate();
-    const [alunos, setAlunos] = useState<Aluno[]>([]);
+    const [escolas, setEscolas] = useState<Escola[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState<string>("");
-    const [filterEscola, setFilterEscola] = useState<string>("");
-    const [filterCID, setFilterCID] = useState<string>("");
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
-    const [escolas, setEscolas] = useState<any[]>([]);
     const itemsPerPage = 10;
 
-    // Buscar alunos e escolas
+    // Buscar escolas
     useEffect(() => {
-        fetchAlunos();
         fetchEscolas();
-    }, [searchTerm, filterStatus, filterEscola, filterCID, currentPage]);
+    }, [searchTerm, filterStatus, currentPage]);
 
-    async function fetchAlunos() {
+    async function fetchEscolas() {
         try {
             setLoading(true);
 
             let query = supabase
-                .from("Alunos")
-                .select(`
-          *,
-          Escolas (
-            Nome
-          ),
-          Familias (
-            Nome_responsavel,
-            Telefone
-          )
-        `, { count: 'exact' });
+                .from("Escolas")
+                .select("*", { count: 'exact' });
 
             // Aplicar filtros
             if (filterStatus) {
                 query = query.eq("Status", filterStatus);
             }
 
-            if (filterEscola) {
-                query = query.eq("Escola_ID", filterEscola);
-            }
-
-            // Filtro por CID (se tiver essa coluna na tabela)
-            // if (filterCID) {
-            //   query = query.eq("CID", filterCID);
-            // }
-
             if (searchTerm) {
-                query = query.or(`
-          Nome.ilike.%${searchTerm}%,
-          Serie.ilike.%${searchTerm}%,
-          Escolas.Nome.ilike.%${searchTerm}%,
-          Familias.Nome_responsavel.ilike.%${searchTerm}%
-        `);
+                query = query.or(`Nome.ilike.%${searchTerm}%,CNPJ.ilike.%${searchTerm}%,Email.ilike.%${searchTerm}%`);
             }
 
             // Paginação
@@ -95,55 +62,20 @@ export default function AlunosTable() {
 
             if (error) throw error;
 
-            setAlunos(data || []);
+            setEscolas(data || []);
             setTotalCount(count || 0);
             setTotalPages(Math.ceil((count || 0) / itemsPerPage));
             setError(null);
         } catch (err: any) {
-            console.error("Erro ao buscar alunos:", err);
-            setError("Erro ao carregar alunos. Tente novamente.");
+            console.error("Erro ao buscar escolas:", err);
+            setError("Erro ao carregar escolas. Tente novamente.");
         } finally {
             setLoading(false);
         }
     }
 
-    async function fetchEscolas() {
-        try {
-            const { data, error } = await supabase
-                .from("Escolas")
-                .select("Escola_ID, Nome")
-                .order("Nome");
-
-            if (error) throw error;
-            setEscolas(data || []);
-        } catch (err) {
-            console.error("Erro ao buscar escolas:", err);
-        }
-    }
-
     // Calcular estatísticas
-    const alunosAtivos = alunos.filter(a => a.Status === "Ativo").length;
-
-    const alunosPorEscola = alunos.reduce((acc, aluno) => {
-        const escolaNome = aluno.Escolas?.Nome || "Sem escola";
-        acc[escolaNome] = (acc[escolaNome] || 0) + 1;
-        return acc;
-    }, {} as { [key: string]: number });
-
-    // Calcular idade
-    const calcularIdade = (dataNascimento: string | null) => {
-        if (!dataNascimento) return "-";
-        const nascimento = new Date(dataNascimento);
-        const hoje = new Date();
-        let idade = hoje.getFullYear() - nascimento.getFullYear();
-        const mesDiff = hoje.getMonth() - nascimento.getMonth();
-
-        if (mesDiff < 0 || (mesDiff === 0 && hoje.getDate() < nascimento.getDate())) {
-            idade--;
-        }
-
-        return `${idade} anos`;
-    };
+    const escolasAtivas = escolas.filter(e => e.Status === "Ativo").length;
 
     // Formatar data
     const formatDate = (dateString: string) => {
@@ -156,40 +88,31 @@ export default function AlunosTable() {
         });
     };
 
-    // Formatar telefone
-    const formatTelefone = (telefone: string) => {
-        if (!telefone) return "-";
-        const numbers = telefone.replace(/\D/g, '');
-        if (numbers.length <= 10) {
-            return numbers
-                .replace(/^(\d{2})(\d)/, '($1) $2')
-                .replace(/(\d{4})(\d)/, '$1-$2');
-        } else {
-            return numbers
-                .replace(/^(\d{2})(\d)/, '($1) $2')
-                .replace(/(\d{5})(\d)/, '$1-$2');
-        }
+    // Formatar CNPJ
+    const formatCNPJ = (cnpj: string) => {
+        if (!cnpj) return "-";
+        return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
     };
 
     // Handle delete
     const handleDelete = async (id: number, nome: string) => {
-        if (!window.confirm(`Tem certeza que deseja excluir o aluno "${nome}"?`)) {
+        if (!window.confirm(`Tem certeza que deseja excluir a escola "${nome}"? Esta ação não pode ser desfeita.`)) {
             return;
         }
 
         try {
             const { error } = await supabase
-                .from("Alunos")
+                .from("Escolas")
                 .delete()
-                .eq("Aluno_ID", id);
+                .eq("Escola_ID", id);
 
             if (error) throw error;
 
-            toast.success("Aluno excluído com sucesso!");
-            fetchAlunos(); // Recarregar a lista
+            // toast.success("Escola excluída com sucesso!");
+            fetchEscolas(); // Recarregar a lista
         } catch (err: any) {
-            console.error("Erro ao excluir aluno:", err);
-            toast.error("Erro ao excluir aluno: " + err.message);
+            console.error("Erro ao excluir escola:", err);
+            alert("Erro ao excluir escola: " + err.message);
         }
     };
 
@@ -200,45 +123,42 @@ export default function AlunosTable() {
     };
 
     // Handle filter change
-    const handleFilterChange = (filter: { status?: string; escola?: string; cid?: string }) => {
-        if (filter.status !== undefined) setFilterStatus(filter.status);
-        if (filter.escola !== undefined) setFilterEscola(filter.escola);
-        if (filter.cid !== undefined) setFilterCID(filter.cid);
+    const handleFilterChange = (filter: { status?: string }) => {
+        setFilterStatus(filter.status || "");
         setCurrentPage(1);
     };
 
-    // Exportar dados
-    const exportData = () => {
-        const dataToExport = alunos.map(aluno => ({
-            ID: aluno.Aluno_ID,
-            Nome: aluno.Nome,
-            Idade: calcularIdade(aluno.Data_nascimento),
-            Série: aluno.Serie,
-            Status: aluno.Status,
-            Escola: aluno.Escolas?.Nome || "-",
-            Responsável: aluno.Familias?.Nome_responsavel || "-",
-            Telefone: aluno.Familias?.Telefone || "-",
-            "Data Cadastro": formatDate(aluno.created_at)
-        }));
+    // if (error && escolas.length === 0) {
+    //     return (
+    //         <div style={{ padding: "40px", textAlign: "center" }}>
+    //             <p style={{ color: "#dc2626", marginBottom: "16px" }}>{error}</p>
+    //             <button
+    //                 onClick={() => fetchEscolas()}
+    //                 style={{
+    //                     padding: "10px 20px",
+    //                     background: "#4F46E5",
+    //                     color: "#fff",
+    //                     border: "none",
+    //                     borderRadius: "6px",
+    //                     cursor: "pointer"
+    //                 }}
+    //             >
+    //                 Tentar novamente
+    //             </button>
+    //         </div>
+    //     );
+    // }
 
-        const csvContent = [
-            Object.keys(dataToExport[0] || {}).join(","),
-            ...dataToExport.map(row => Object.values(row).join(","))
-        ].join("\n");
-
-        const blob = new Blob([csvContent], { type: "text/csv" });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `alunos_${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-
-        toast.success("Dados exportados com sucesso!");
-    };
-
-       return (
+    return (
         <div>
+            {/* Header com estatísticas e filtros */}
+            {/* <EscolasHeader
+                totalEscolas={totalCount}
+                escolasAtivas={escolasAtivas}
+                onSearch={handleSearch}
+                onFilterChange={handleFilterChange}
+            /> */}
+
             {/* Tabela */}
             <div style={{
                 background: "#fff",
@@ -247,7 +167,7 @@ export default function AlunosTable() {
                 boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
             }}>
                 {/* Loading State */}
-                {loading && alunos.length === 0 ? (
+                {loading && escolas.length === 0 ? (
                     <div style={{ padding: "40px", textAlign: "center" }}>
                         <div style={{
                             display: "inline-block",
@@ -258,52 +178,10 @@ export default function AlunosTable() {
                             borderRadius: "50%",
                             animation: "spin 1s linear infinite"
                         }}></div>
-                        <p style={{ marginTop: "16px", color: "#6b7280" }}>Carregando alunos...</p>
+                        <p style={{ marginTop: "16px", color: "#6b7280" }}>Carregando escolas...</p>
                     </div>
                 ) : (
                     <>
-                        {/* Contador e Exportação */}
-                        <div style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            padding: "16px 24px",
-                            borderBottom: "1px solid #e5e7eb",
-                            backgroundColor: "#f9fafb"
-                        }}>
-                            <div style={{ color: "#6b7280", fontSize: "14px", fontWeight: "500" }}>
-                                {alunos.length} de {totalCount} alunos
-                            </div>
-                            <button
-                                onClick={exportData}
-                                style={{
-                                    padding: "8px 16px",
-                                    borderRadius: "6px",
-                                    border: "1px solid #d1d5db",
-                                    backgroundColor: "#fff",
-                                    color: "#374151",
-                                    cursor: "pointer",
-                                    fontSize: "13px",
-                                    fontWeight: "500",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "6px",
-                                    transition: "all 0.2s"
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = "#f3f4f6";
-                                    e.currentTarget.style.borderColor = "#9ca3af";
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = "#fff";
-                                    e.currentTarget.style.borderColor = "#d1d5db";
-                                }}
-                            >
-                                <span>📥</span>
-                                Exportar CSV
-                            </button>
-                        </div>
-
                         {/* Tabela */}
                         <div style={{ overflowX: "auto" }}>
                             <table style={{
@@ -317,52 +195,43 @@ export default function AlunosTable() {
                                         borderBottom: "1px solid #e5e7eb"
                                     }}>
                                         <th style={{
-                                            padding: "16px 12px",
+                                            padding: "16px 24px",
                                             textAlign: "left",
                                             fontSize: "12px",
                                             fontWeight: "600",
                                             color: "#6b7280",
                                             textTransform: "uppercase",
                                             letterSpacing: "0.05em"
-                                        }}>Aluno</th>
+                                        }}>ID</th>
                                         <th style={{
-                                            padding: "16px 12px",
+                                            padding: "16px 24px",
                                             textAlign: "left",
                                             fontSize: "12px",
                                             fontWeight: "600",
                                             color: "#6b7280",
                                             textTransform: "uppercase",
                                             letterSpacing: "0.05em"
-                                        }}>Idade</th>
+                                        }}>Nome da Escola</th>
                                         <th style={{
-                                            padding: "16px 12px",
+                                            padding: "16px 24px",
                                             textAlign: "left",
                                             fontSize: "12px",
                                             fontWeight: "600",
                                             color: "#6b7280",
                                             textTransform: "uppercase",
                                             letterSpacing: "0.05em"
-                                        }}>Série/Ano</th>
+                                        }}>CNPJ</th>
                                         <th style={{
-                                            padding: "16px 12px",
+                                            padding: "16px 24px",
                                             textAlign: "left",
                                             fontSize: "12px",
                                             fontWeight: "600",
                                             color: "#6b7280",
                                             textTransform: "uppercase",
                                             letterSpacing: "0.05em"
-                                        }}>Escola</th>
+                                        }}>Contato</th>
                                         <th style={{
-                                            padding: "16px 12px",
-                                            textAlign: "left",
-                                            fontSize: "12px",
-                                            fontWeight: "600",
-                                            color: "#6b7280",
-                                            textTransform: "uppercase",
-                                            letterSpacing: "0.05em"
-                                        }}>Responsável</th>
-                                        <th style={{
-                                            padding: "16px 12px",
+                                            padding: "16px 24px",
                                             textAlign: "left",
                                             fontSize: "12px",
                                             fontWeight: "600",
@@ -371,7 +240,7 @@ export default function AlunosTable() {
                                             letterSpacing: "0.05em"
                                         }}>Status</th>
                                         <th style={{
-                                            padding: "16px 12px",
+                                            padding: "16px 24px",
                                             textAlign: "left",
                                             fontSize: "12px",
                                             fontWeight: "600",
@@ -380,7 +249,7 @@ export default function AlunosTable() {
                                             letterSpacing: "0.05em"
                                         }}>Cadastro</th>
                                         <th style={{
-                                            padding: "16px 12px",
+                                            padding: "16px 24px",
                                             textAlign: "left",
                                             fontSize: "12px",
                                             fontWeight: "600",
@@ -392,23 +261,23 @@ export default function AlunosTable() {
                                 </thead>
 
                                 <tbody>
-                                    {alunos.length === 0 ? (
+                                    {escolas.length === 0 ? (
                                         <tr>
-                                            <td colSpan={8} style={{
+                                            <td colSpan={7} style={{
                                                 padding: "48px 24px",
                                                 textAlign: "center",
                                                 color: "#9ca3af",
                                                 fontSize: "14px"
                                             }}>
-                                                {searchTerm || filterStatus || filterEscola || filterCID
-                                                    ? "Nenhum aluno encontrado com os filtros aplicados."
-                                                    : "Nenhum aluno cadastrado."}
+                                                {searchTerm || filterStatus
+                                                    ? "Nenhuma escola encontrada com os filtros aplicados."
+                                                    : "Nenhuma escola cadastrada."}
                                             </td>
                                         </tr>
                                     ) : (
-                                        alunos.map((aluno) => (
+                                        escolas.map((escola) => (
                                             <tr
-                                                key={aluno.Aluno_ID}
+                                                key={escola.Escola_ID}
                                                 style={{
                                                     borderBottom: "1px solid #f3f4f6",
                                                     transition: "background-color 0.2s"
@@ -420,52 +289,49 @@ export default function AlunosTable() {
                                                     e.currentTarget.style.backgroundColor = "#fff";
                                                 }}
                                             >
-                                                <td style={{ padding: "16px 12px" }}>
-                                                    <div style={{ fontWeight: "600", color: "#1f2937", marginBottom: "4px" }}>
-                                                        {aluno.Nome || "Sem nome"}
+                                                <td style={{
+                                                    padding: "16px 24px",
+                                                    color: "#6b7280",
+                                                    fontSize: "14px",
+                                                    fontWeight: "500"
+                                                }}>
+                                                    #{escola.Escola_ID.toString().padStart(3, '0')}
+                                                </td>
+
+                                                <td style={{ padding: "16px 24px" }}>
+                                                    <div style={{ fontWeight: "600", color: "#1f2937" }}>
+                                                        {escola.Nome}
                                                     </div>
                                                     <div style={{
                                                         fontSize: "12px",
-                                                        color: "#6b7280"
+                                                        color: "#6b7280",
+                                                        marginTop: "4px"
                                                     }}>
-                                                        ID: #{aluno.Aluno_ID.toString().padStart(3, '0')}
+                                                        {escola.Endereco ?
+                                                            escola.Endereco.split(',')[0] + '...' :
+                                                            "Sem endereço"
+                                                        }
                                                     </div>
                                                 </td>
 
-                                                <td style={{
-                                                    padding: "16px 12px",
-                                                    fontSize: "14px",
-                                                    color: "#374151"
-                                                }}>
-                                                    {calcularIdade(aluno.Data_nascimento)}
+                                                <td style={{ padding: "16px 24px", fontSize: "14px", color: "#1f2937" }}>
+                                                    {formatCNPJ(escola.CNPJ)}
                                                 </td>
 
-                                                <td style={{
-                                                    padding: "16px 12px",
-                                                    fontSize: "14px",
-                                                    color: "#374151"
-                                                }}>
-                                                    {aluno.Serie || "-"}
-                                                </td>
-
-                                                <td style={{ padding: "16px 12px" }}>
-                                                    <div style={{ fontWeight: "500", color: "#1f2937" }}>
-                                                        {aluno.Escolas?.Nome || "Sem escola"}
+                                                <td style={{ padding: "16px 24px" }}>
+                                                    <div style={{ fontSize: "14px", color: "#1f2937" }}>
+                                                        {escola.Email || "-"}
+                                                    </div>
+                                                    <div style={{
+                                                        fontSize: "12px",
+                                                        color: "#6b7280",
+                                                        marginTop: "4px"
+                                                    }}>
+                                                        {escola.Telefone || "-"}
                                                     </div>
                                                 </td>
 
-                                                <td style={{ padding: "16px 12px" }}>
-                                                    <div style={{ marginBottom: "4px" }}>
-                                                        <div style={{ fontWeight: "500", color: "#1f2937" }}>
-                                                            {aluno.Familias?.Nome_responsavel || "Sem responsável"}
-                                                        </div>
-                                                    </div>
-                                                    <div style={{ fontSize: "12px", color: "#6b7280" }}>
-                                                        {formatTelefone(aluno.Familias?.Telefone || "")}
-                                                    </div>
-                                                </td>
-
-                                                <td style={{ padding: "16px 12px" }}>
+                                                <td style={{ padding: "16px 24px" }}>
                                                     <span
                                                         style={{
                                                             display: "inline-flex",
@@ -474,13 +340,13 @@ export default function AlunosTable() {
                                                             borderRadius: "20px",
                                                             fontSize: "12px",
                                                             fontWeight: "600",
-                                                            color: aluno.Status === "Ativo" ? "#059669" :
-                                                                aluno.Status === "Inativo" ? "#dc2626" : "#d97706",
-                                                            backgroundColor: aluno.Status === "Ativo" ? "#d1fae5" :
-                                                                aluno.Status === "Inativo" ? "#fee2e2" : "#fef3c7"
+                                                            color: escola.Status === "Ativo" ? "#059669" :
+                                                                escola.Status === "Inativo" ? "#dc2626" : "#d97706",
+                                                            backgroundColor: escola.Status === "Ativo" ? "#d1fae5" :
+                                                                escola.Status === "Inativo" ? "#fee2e2" : "#fef3c7"
                                                         }}
                                                     >
-                                                        {aluno.Status === "Ativo" && (
+                                                        {escola.Status === "Ativo" && (
                                                             <span style={{
                                                                 width: "6px",
                                                                 height: "6px",
@@ -489,22 +355,22 @@ export default function AlunosTable() {
                                                                 marginRight: "6px"
                                                             }}></span>
                                                         )}
-                                                        {aluno.Status || "Sem status"}
+                                                        {escola.Status}
                                                     </span>
                                                 </td>
 
                                                 <td style={{
-                                                    padding: "16px 12px",
+                                                    padding: "16px 24px",
                                                     fontSize: "14px",
                                                     color: "#6b7280"
                                                 }}>
-                                                    {formatDate(aluno.created_at)}
+                                                    {formatDate(escola.created_at || "")}
                                                 </td>
 
-                                                <td style={{ padding: "16px 12px" }}>
+                                                <td style={{ padding: "16px 24px" }}>
                                                     <div style={{ display: "flex", gap: "8px" }}>
                                                         <button
-                                                            onClick={() => navigate(`/alunos/${aluno.Aluno_ID}`)}
+                                                            onClick={() => navigate(`/escolas/ver/${escola.Escola_ID}`)}
                                                             style={{
                                                                 padding: "8px 12px",
                                                                 borderRadius: "6px",
@@ -533,7 +399,7 @@ export default function AlunosTable() {
                                                         </button>
 
                                                         <button
-                                                            onClick={() => navigate(`/alunos/editar/${aluno.Aluno_ID}`)}
+                                                            onClick={() => navigate(`/escolas/${escola.Escola_ID}/editar`)}
                                                             style={{
                                                                 padding: "8px 12px",
                                                                 borderRadius: "6px",
@@ -562,7 +428,7 @@ export default function AlunosTable() {
                                                         </button>
 
                                                         <button
-                                                            onClick={() => handleDelete(aluno.Aluno_ID, aluno.Nome || "aluno")}
+                                                            onClick={() => handleDelete(escola.Escola_ID, escola.Nome)}
                                                             style={{
                                                                 padding: "8px 12px",
                                                                 borderRadius: "6px",
@@ -599,7 +465,7 @@ export default function AlunosTable() {
                         </div>
 
                         {/* Paginação */}
-                        {alunos.length > 0 && totalPages > 1 && (
+                        {escolas.length > 0 && totalPages > 1 && (
                             <div style={{
                                 display: "flex",
                                 justifyContent: "space-between",
@@ -608,11 +474,13 @@ export default function AlunosTable() {
                                 borderTop: "1px solid #e5e7eb"
                             }}>
                                 <div style={{ color: "#6b7280", fontSize: "14px" }}>
-                                    Página {currentPage} de {totalPages}
+                                    Mostrando {escolas.length} de {totalCount} escolas
                                 </div>
 
                                 <Pagination
-
+                                    // currentPage={currentPage}
+                                    // totalPages={totalPages}
+                                    // onPageChange={(page) => setCurrentPage(page)}
                                 />
                             </div>
                         )}
