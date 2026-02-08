@@ -533,7 +533,7 @@ export default function AlunosTable() {
                                                         </button>
 
                                                         <button
-                                                            onClick={() => navigate(`/alunos/editar/${aluno.Aluno_ID}`)}
+                                                            onClick={() => navigate(`/alunos/${aluno.Aluno_ID}/editar`)}
                                                             style={{
                                                                 padding: "8px 12px",
                                                                 borderRadius: "6px",

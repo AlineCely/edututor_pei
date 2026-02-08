@@ -10,7 +10,14 @@ interface Disciplina {
     Categoria: string;
     Status: string;
     created_at?: string;
-    Plataforma_ID?: number;
+    Plataforma_ID?: number | null;
+    // // Relacionamentos
+    // Plataformas?: {
+    //     Nome: string;
+    // };
+    // Turmas_Disciplinas?: Array<{
+    //     Turma_ID: number;
+    // }>;
 }
 
 export default function DisciplinasTable() {
@@ -18,17 +25,22 @@ export default function DisciplinasTable() {
     const [disciplinas, setDisciplinas] = useState<Disciplina[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState<string>("");
     const [filterCategoria, setFilterCategoria] = useState<string>("");
-    const [searchTerm, setSearchTerm] = useState<string>("");
+    // const [filterPlataforma, setFilterPlataforma] = useState<string>("");
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+    //   const [plataformas, setPlataformas] = useState<any[]>([]);
+    const [categorias, setCategorias] = useState<string[]>([]);
     const itemsPerPage = 10;
 
     // Buscar disciplinas
     useEffect(() => {
         fetchDisciplinas();
-    }, [filterStatus, filterCategoria, searchTerm, currentPage]);
+        // fetchPlataformas();
+    }, [searchTerm, filterStatus, filterCategoria, currentPage]);
 
     async function fetchDisciplinas() {
         try {
@@ -64,6 +76,7 @@ export default function DisciplinasTable() {
             if (error) throw error;
 
             setDisciplinas(data || []);
+            setTotalCount(count || 0);
             setTotalPages(Math.ceil((count || 0) / itemsPerPage));
             setError(null);
         } catch (err: any) {
@@ -74,8 +87,21 @@ export default function DisciplinasTable() {
         }
     }
 
+    // async function fetchPlataformas() {
+    //     try {
+    //         const { data, error } = await supabase
+    //             .from("Plataformas")
+    //             .select("Plataforma_ID, Nome")
+    //             .order("Nome");
+
+    //         if (error) throw error;
+    //         setPlataformas(data || []);
+    //     } catch (err) {
+    //         console.error("Erro ao buscar plataformas:", err);
+    //     }
+    // }
+
     // Buscar categorias únicas para o filtro
-    const [categorias, setCategorias] = useState<string[]>([]);
 
     useEffect(() => {
         fetchCategorias();
@@ -90,7 +116,7 @@ export default function DisciplinasTable() {
 
             if (error) throw error;
 
-            const uniqueCategorias = [...new Set(data.map(item => item.Categoria).filter(Boolean))];
+            const uniqueCategorias = [...new Set(data.map(item => item.Categoria).filter(Boolean) || [])];
             setCategorias(uniqueCategorias);
         } catch (err) {
             console.error("Erro ao buscar categorias:", err);
@@ -129,6 +155,10 @@ export default function DisciplinasTable() {
             console.error("Erro ao excluir disciplina:", err);
             alert("Erro ao excluir disciplina: " + err.message);
         }
+    };
+
+    const handlePageChange = (page: number) => {
+        setCurrentPage(page);
     };
 
     if (loading && disciplinas.length === 0) {
@@ -187,94 +217,187 @@ export default function DisciplinasTable() {
             }}
         >
             {/* Filtros */}
-            <div style={{ display: "flex", gap: "12px", marginBottom: "16px", }}>
-                <select style={{ padding: "8px", borderRadius: "6px", border: "1px solid #ccc", backgroundColor: "#f9f9f9", color: "#555" }}>
-                    <option>Status</option>
+            <div style={{ display: "flex", gap: "12px", marginBottom: "16px", flexWrap: "wrap" }}>
+                <select
+                    value={filterStatus}
+                    onChange={(e) => {
+                        setFilterStatus(e.target.value);
+                        setCurrentPage(1);
+                    }}
+                    style={{ padding: "8px", borderRadius: "6px", border: "1px solid #ccc", backgroundColor: "#f9f9f9", color: "#555" }}>
+                    <option>Todos os status</option>
                     <option>Ativo</option>
                     <option>Inativo</option>
                 </select>
+
+                <select 
+                    value={filterCategoria}
+                    onChange={(e) => {
+                        setFilterCategoria(e.target.value);
+                        setCurrentPage(1);
+                    }}
+                    style={{ 
+                        padding: "8px", 
+                        borderRadius: "6px", 
+                        border: "1px solid #ccc",
+                        backgroundColor: "#f9f9f9", 
+                        color: "#555",
+                        minWidth: "150px"
+                    }}
+                >
+                    <option value="">Todas categorias</option>
+                    {categorias.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                </select>
+
+                <button
+                    onClick={() => {
+                        setSearchTerm("");
+                        setFilterStatus("");
+                        setFilterCategoria("");
+                        setCurrentPage(1);
+                    }}
+                    style={{
+                        padding: "8px 16px",
+                        borderRadius: "6px",
+                        border: "1px solid #ccc",
+                        backgroundColor: "#f9f9f9",
+                        cursor: "pointer",
+                        color: "#555"
+                    }}
+                >
+                    Limpar filtros
+                </button>
+            </div>
+
+            {/* Informações de resultados */}
+            <div style={{ 
+                marginBottom: "16px", 
+                color: "#666",
+                fontSize: "14px" 
+            }}>
+                {totalCount > 0 ? (
+                    <p>
+                        Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, totalCount)} 
+                        de {totalCount} disciplinas
+                    </p>
+                ) : (
+                    <p>Nenhuma disciplina encontrada</p>
+                )}
             </div>
 
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                     <tr style={{ borderBottom: "1px solid #eee", textAlign: "left" }}>
-                        <th>Nome da Disciplina</th>
-                        <th>Descrição</th>
-                        <th>Ativo</th>
-                        <th>Cadastrado em</th>
-                        <th>Ação</th>
+                        <th style={{ padding: "12px" }}>Nome da Disciplina</th>
+                        <th style={{ padding: "12px" }}>Descrição</th>
+                        <th style={{ padding: "12px" }}>Categoria</th>
+                        <th style={{ padding: "12px" }}>Status</th>
+                        <th style={{ padding: "12px" }}>Cadastrado em</th>
+                        <th style={{ padding: "12px" }}>Ações</th>
                     </tr>
                 </thead>
 
                 <tbody>
-                    {disciplinas.map((d, index) => (
-                        <tr key={index} style={{ borderBottom: "1px solid #f1f1f1" }}>
+                    {disciplinas.map((d) => (
+                        <tr key={d.Disciplina_ID} style={{ borderBottom: "1px solid #f1f1f1" }}>
                             <td style={{ padding: "12px" }}>{d.Nome}</td>
-                            <td>{d.Descricao}</td>
-                            <td>
+                            <td style={{ padding: "12px" }}>{d.Descricao}</td>
+                            <td style={{ padding: "12px" }}>{d.Categoria || "-"}</td>
+                            <td style={{ padding: "12px" }}>
                                 <span
                                     style={{
-                                        color: d.Status ? "#16a34a" : "#dc2626",
+                                        color: d.Status === "Ativo" ? "#16a34a" : "#dc2626",
                                         fontWeight: 500
                                     }}
                                 >
-                                    {d.Status ? "Ativo" : "Inativo"}
+                                    {d.Status || "Inativo"}
                                 </span>
                             </td>
-                            <td>{d.created_at}</td>
-                            <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
-                                <button
-                                    style={{
-                                        padding: "8px 12px",
-                                        borderRadius: "6px",
-                                        border: "1px solid #d1d5db",
-                                        backgroundColor: "white",
-                                        cursor: "pointer",
-                                        fontSize: "14px",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "4px",
-                                        transition: "all 0.2s",
-                                        color: "#374151"
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = "#f3f4f6";
-                                        e.currentTarget.style.borderColor = "#9ca3af";
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = "white";
-                                        e.currentTarget.style.borderColor = "#d1d5db";
-                                    }}
-                                >
-                                    👁️ Ver
-                                </button>
-                                <button
-                                    onClick={() => navigate(`/disciplinas/${d.Disciplina_ID}/editar`)}
-                                    style={{
-                                        padding: "8px 12px",
-                                        borderRadius: "6px",
-                                        border: "1px solid #d1d5db",
-                                        backgroundColor: "white",
-                                        cursor: "pointer",
-                                        fontSize: "14px",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "4px",
-                                        transition: "all 0.2s",
-                                        color: "#374151"
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = "#f3f4f6";
-                                        e.currentTarget.style.borderColor = "#9ca3af";
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = "white";
-                                        e.currentTarget.style.borderColor = "#d1d5db";
-                                    }}
-                                >
-                                    ✏️ Editar
-                                </button>
-                            </div>
+                            <td style={{ padding: "12px" }}>{d.created_at}</td>
+                            <td style={{ padding: "12px" }}>
+                                <div style={{ display: "flex", gap: "8px" }}>
+                                    <button
+                                        onClick={() => navigate(`/disciplinas/${d.Disciplina_ID}`)}
+                                        style={{
+                                            padding: "8px 12px",
+                                            borderRadius: "6px",
+                                            border: "1px solid #d1d5db",
+                                            backgroundColor: "white",
+                                            cursor: "pointer",
+                                            fontSize: "14px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "4px",
+                                            transition: "all 0.2s",
+                                            color: "#374151"
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = "#f3f4f6";
+                                            e.currentTarget.style.borderColor = "#9ca3af";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = "white";
+                                            e.currentTarget.style.borderColor = "#d1d5db";
+                                        }}
+                                    >
+                                        👁️ Ver
+                                    </button>
+                                    <button
+                                        onClick={() => navigate(`/disciplinas/${d.Disciplina_ID}/editar`)}
+                                        style={{
+                                            padding: "8px 12px",
+                                            borderRadius: "6px",
+                                            border: "1px solid #d1d5db",
+                                            backgroundColor: "white",
+                                            cursor: "pointer",
+                                            fontSize: "14px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "4px",
+                                            transition: "all 0.2s",
+                                            color: "#374151"
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = "#f3f4f6";
+                                            e.currentTarget.style.borderColor = "#9ca3af";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = "white";
+                                            e.currentTarget.style.borderColor = "#d1d5db";
+                                        }}
+                                    >
+                                        ✏️ Editar
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(d.Disciplina_ID, d.Nome)}
+                                        style={{
+                                            padding: "8px 12px",
+                                            borderRadius: "6px",
+                                            border: "1px solid #dc2626",
+                                            backgroundColor: "white",
+                                            cursor: "pointer",
+                                            fontSize: "14px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "4px",
+                                            transition: "all 0.2s",
+                                            color: "#dc2626"
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = "#fee2e2";
+                                            e.currentTarget.style.borderColor = "#b91c1c";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = "white";
+                                            e.currentTarget.style.borderColor = "#dc2626";
+                                        }}
+                                    >
+                                        🗑️ Excluir
+                                    </button>
+                                </div>
+                            </td>
                         </tr>
                     ))}
                 </tbody>

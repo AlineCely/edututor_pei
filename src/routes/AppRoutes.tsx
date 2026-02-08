@@ -22,6 +22,8 @@ import Familias from "../pages/Familias";
 import Trumas from "../pages/Turmas";
 import TurmasForm from "../pages/TurmasForm";
 import Plataformas from "../pages/Plataformas";
+import Aulas from "../pages/Aulas";
+import AulasForm from "../pages/AulasForm";
 
 export default function AppRoutes() {
     return (
@@ -125,6 +127,14 @@ export default function AppRoutes() {
                     }
                 />
                 <Route
+                    path="/alunos/:id/editar"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <AlunoForm />
+                        </RequireAuth>
+                    }
+                />
+                <Route
                     path="/familias"
                     element={
                         <RequireAuth allowedRoles={["GESTOR"]}>
@@ -134,6 +144,14 @@ export default function AppRoutes() {
                 />
                 <Route
                     path="/familias/novo"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <FamiliasForm />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/familias/:id/editar"
                     element={
                         <RequireAuth allowedRoles={["GESTOR"]}>
                             <FamiliasForm />
@@ -217,6 +235,30 @@ export default function AppRoutes() {
                     element={
                         <RequireAuth allowedRoles={["GESTOR"]}>
                             <DisciplinasForm />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/aulas"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <Aulas />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/aulas/novo"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <AulasForm />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/aulas/:id/editar"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <AulasForm />
                         </RequireAuth>
                     }
                 />

@@ -56,12 +56,9 @@ export default function TurmasForm() {
             if (error) throw error;
 
             // Formatar dados dos professores
-            const professoresFormatados = data?.map(prof => ({
-                Professor_ID: prof.Professor_ID,
-                Nome: prof.Usuarios?.Nome || "Professor sem nome"
-            })) || [];
+            
 
-            setProfessores(professoresFormatados);
+            setProfessores(data || []);
         } catch (err: any) {
             console.error("Erro ao buscar professores:", err);
             toast.error("Erro ao carregar professores");
@@ -113,17 +110,22 @@ export default function TurmasForm() {
             const { data, error } = await supabase
                 .from("Alunos_Turmas")
                 .select(`
-          Aluno_ID,
-          Alunos:Aluno_ID (
-            Nome
-          )
-        `)
+                    Alunos (
+                        Aluno_ID,
+                        Nome
+                    )
+                `)
                 .eq("Turma_ID", id);
 
             if (error) throw error;
-            setAlunosVinculados(data || []);
+
+            const alunosFormatados =
+            data?.map((item: any) => item.Alunos).filter(Boolean) || [];
+
+            setAlunosVinculados(alunosFormatados);
         } catch (err: any) {
             console.error("Erro ao buscar alunos:", err);
+            toast.error("Erro ao carregar alunos vinculados");
         }
     }
 
@@ -182,7 +184,8 @@ export default function TurmasForm() {
             } else {
                 const { error } = await supabase
                     .from("Turmas")
-                    .insert(payload);
+                    .insert(payload)
+                    .select()
 
                 if (error) throw error;
                 toast.success('Turma criada com sucesso!');
@@ -244,9 +247,9 @@ export default function TurmasForm() {
                         Esta turma possui {alunosVinculados.length} aluno(s) vinculado(s):
                     </p>
                     <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "13px", color: "#78350f" }}>
-                        {alunosVinculados.map((aluno, index) => (
-                            <li key={index}>
-                                {aluno.Alunos?.Nome || `Aluno ${aluno.Aluno_ID}`}
+                        {alunosVinculados.map((aluno) => (
+                            <li key={aluno.Aluno_ID}>
+                                {aluno.Nome || `Aluno ${aluno.Aluno_ID}`}
                             </li>
                         ))}
                     </ul>
@@ -271,7 +274,6 @@ export default function TurmasForm() {
                         value={formData.Nome}
                         onChange={handleChange}
                         required
-                        placeholder="Ex: Turma A - Matemática Básica"
                     />
 
                     <div style={{ gridColumn: 'span 2' }}>

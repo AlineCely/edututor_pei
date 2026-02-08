@@ -148,6 +148,15 @@ export default function DisciplinasForm() {
             return;
         }
 
+        // Verificar se a plataforma selecionada existe
+        if (selectedPlataformaId) {
+            const plataformaExiste = plataformas.some(p => p.Plataforma_ID.toString() === selectedPlataformaId);
+            if (!plataformaExiste) {
+                toast.error("A plataforma selecionada não existe");
+                return;
+            }
+        }
+
         setLoading(true);
 
         try {
@@ -155,6 +164,11 @@ export default function DisciplinasForm() {
                 ...formData,
                 Plataforma_ID: Number(id)
             };
+            
+            // Adicionar Plataforma_ID apenas se estiver selecionada
+            if (selectedPlataformaId) {
+                payload.Plataforma_ID = Number(selectedPlataformaId);
+            }
 
             if (isEditing) {
                 const { error } = await supabase

@@ -437,7 +437,7 @@ export default function FamiliasTable() {
                               </button>
                               
                               <button
-                                onClick={() => navigate(`/familias/editar/${familia.Familia_ID}`)}
+                                onClick={() => navigate(`/familias/${familia.Familia_ID}/editar`)}
                                 style={{
                                   padding: "8px 12px",
                                   borderRadius: "6px",
