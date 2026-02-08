@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import Pagination from "../Table/Pagination";
-import AulasHeader from "./AulasHeader";
 import { toast } from "react-hot-toast";
 
 interface Aula {
@@ -13,6 +12,8 @@ interface Aula {
     Descricao: string | null;
     Link_reuniao: string | null;
     created_at: string;
+    Professor_ID?: number;
+    Disciplina_ID?: number;
     // Relacionamentos
     Professores?: {
         Professor_ID: number;
@@ -28,17 +29,41 @@ interface Aula {
     }>;
 }
 
-export default function AulasTable() {
+interface AulasTableProps {
+    onStatsUpdate?: (stats: {
+        totalAulas: number;
+        aulasAgendadas: number;
+        aulasRealizadas: number;
+        aulasCanceladas: number;
+        professoresCount: number;
+        disciplinasCount: number;
+        professores: any[];
+        disciplinas: any[];
+    }) => void;
+    externalSearchTerm?: string;
+    externalFilters?: {
+        status?: string;
+        professor?: string;
+        disciplina?: string;
+        dataInicio?: string;
+        dataFim?: string;
+    };
+}
+
+export default function AulasTable({
+    onStatsUpdate,
+    externalSearchTerm = "",
+    externalFilters = {}
+}: AulasTableProps) {
     const navigate = useNavigate();
     const [aulas, setAulas] = useState<Aula[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [filterStatus, setFilterStatus] = useState<string>("");
-    const [filterProfessor, setFilterProfessor] = useState<string>("");
-    const [filterDisciplina, setFilterDisciplina] = useState<string>("");
-    const [filterDataInicio, setFilterDataInicio] = useState<string>("");
-    const [filterDataFim, setFilterDataFim] = useState<string>("");
+    const [searchTerm, setSearchTerm] = useState(externalSearchTerm);
+    const [filterStatus, setFilterStatus] = useState<string>(externalFilters.status || "");
+    const [filterProfessor, setFilterProfessor] = useState<string>(externalFilters.professor || "");
+    const [filterDisciplina, setFilterDisciplina] = useState<string>(externalFilters.disciplina || "");
+    const [filterDataInicio, setFilterDataInicio] = useState<string>(externalFilters.dataInicio || "");
+    const [filterDataFim, setFilterDataFim] = useState<string>(externalFilters.dataFim || "");
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
@@ -46,34 +71,53 @@ export default function AulasTable() {
     const [disciplinas, setDisciplinas] = useState<any[]>([]);
     const itemsPerPage = 10;
 
-    // Buscar aulas
+    // Sincronizar com props externas
     useEffect(() => {
-        fetchAulas();
-        fetchProfessores();
-        fetchDisciplinas();
-    }, [searchTerm, filterStatus, filterProfessor, filterDisciplina, filterDataInicio, filterDataFim, currentPage]);
+        if (externalSearchTerm !== undefined) {
+            setSearchTerm(externalSearchTerm);
+        }
+    }, [externalSearchTerm]);
 
-    async function fetchAulas() {
+    useEffect(() => {
+        if (externalFilters.status !== undefined) {
+            setFilterStatus(externalFilters.status);
+        }
+        if (externalFilters.professor !== undefined) {
+            setFilterProfessor(externalFilters.professor);
+        }
+        if (externalFilters.disciplina !== undefined) {
+            setFilterDisciplina(externalFilters.disciplina);
+        }
+        if (externalFilters.dataInicio !== undefined) {
+            setFilterDataInicio(externalFilters.dataInicio);
+        }
+        if (externalFilters.dataFim !== undefined) {
+            setFilterDataFim(externalFilters.dataFim);
+        }
+    }, [externalFilters]);
+
+    // Buscar aulas
+    const fetchAulas = useCallback(async () => {
         try {
             setLoading(true);
 
             let query = supabase
                 .from("Aulas")
                 .select(`
-          *,
-          Professores:Professor_ID (
-            Professor_ID,
-            Usuarios:Usuario_ID (
-              Nome
-            )
-          ),
-          Disciplinas:Disciplina_ID (
-            Nome
-          ),
-          Aulas_Alunos (
-            Aluno_ID
-          )
-        `, { count: 'exact' });
+                    *,
+                    Professores:Professor_ID (
+                        Professor_ID,
+                        Usuarios:Usuario_ID (
+                            Nome
+                        )
+                    ),
+                    Disciplinas:Disciplina_ID (
+                        Nome
+                    ),
+                    Aulas_Alunos (
+                        Aluno_ID
+                    )
+                `, { count: 'exact' });
 
             // Aplicar filtros
             if (searchTerm) {
@@ -112,92 +156,125 @@ export default function AulasTable() {
 
             if (error) throw error;
 
-            setAulas(data || []);
+            const aulasData = data || [];
+            setAulas(aulasData);
             setTotalCount(count || 0);
             setTotalPages(Math.ceil((count || 0) / itemsPerPage));
-            setError(null);
+
+            // Buscar professores e disciplinas para os filtros e notificar componente pai
+            const fetchProfessoresEDisciplinas = async () => {
+                try {
+                    // Buscar professores
+                    const { data: profData, error: profError } = await supabase
+                        .from("Professores")
+                        .select(`
+                            Professor_ID,
+                            Usuarios:Usuario_ID (
+                                Nome
+                            )
+                        `)
+                        .order("Professor_ID");
+
+                    if (profError) throw profError;
+                    
+                    const professoresData = profData || [];
+                    setProfessores(professoresData);
+
+                    // Buscar disciplinas
+                    const { data: discData, error: discError } = await supabase
+                        .from("Disciplinas")
+                        .select("Disciplina_ID, Nome")
+                        .order("Nome");
+
+                    if (discError) throw discError;
+                    
+                    const disciplinasData = discData || [];
+                    setDisciplinas(disciplinasData);
+
+                    // Calcular estatísticas
+                    const aulasAgendadas = aulasData.filter(a => a.Status === "agendada").length;
+                    const aulasRealizadas = aulasData.filter(a => a.Status === "realizada").length;
+                    const aulasCanceladas = aulasData.filter(a => a.Status === "cancelada").length;
+
+                    const professoresUnicos = [...new Set(aulasData
+                        .map(a => a.Professores?.Professor_ID)
+                        .filter(Boolean))].length;
+
+                    const disciplinasUnicas = [...new Set(aulasData
+                        .map(a => a.Disciplinas?.Nome)
+                        .filter(Boolean))].length;
+
+                    // Notificar componente pai
+                    if (onStatsUpdate) {
+                        onStatsUpdate({
+                            totalAulas: count || 0,
+                            aulasAgendadas,
+                            aulasRealizadas,
+                            aulasCanceladas,
+                            professoresCount: professoresUnicos,
+                            disciplinasCount: disciplinasUnicas,
+                            professores: professoresData,
+                            disciplinas: disciplinasData
+                        });
+                    }
+                } catch (err) {
+                    console.error("Erro ao buscar professores/disciplinas:", err);
+                }
+            };
+
+            fetchProfessoresEDisciplinas();
         } catch (err: any) {
             console.error("Erro ao buscar aulas:", err);
-            setError("Erro ao carregar aulas. Tente novamente.");
+            toast.error("Erro ao carregar aulas. Tente novamente.");
         } finally {
             setLoading(false);
         }
-    }
+    }, [searchTerm, filterStatus, filterProfessor, filterDisciplina, filterDataInicio, filterDataFim, currentPage, onStatsUpdate]);
 
-    async function fetchProfessores() {
-        try {
-            const { data, error } = await supabase
-                .from("Professores")
-                .select(`
-          Professor_ID,
-          Usuarios:Usuario_ID (
-            Nome
-          )
-        `)
-                .order("Professor_ID");
-
-            if (error) throw error;
-            setProfessores(data || []);
-        } catch (err) {
-            console.error("Erro ao buscar professores:", err);
-        }
-    }
-
-    async function fetchDisciplinas() {
-        try {
-            const { data, error } = await supabase
-                .from("Disciplinas")
-                .select("Disciplina_ID, Nome")
-                .order("Nome");
-
-            if (error) throw error;
-            setDisciplinas(data || []);
-        } catch (err) {
-            console.error("Erro ao buscar disciplinas:", err);
-        }
-    }
-
-    // Calcular estatísticas
-    const aulasAgendadas = aulas.filter(a => a.Status === "agendada").length;
-    const aulasRealizadas = aulas.filter(a => a.Status === "realizada").length;
-    const aulasCanceladas = aulas.filter(a => a.Status === "cancelada").length;
-
-    const professoresUnicos = [...new Set(aulas
-        .map(a => a.Professores?.Professor_ID)
-        .filter(Boolean))].length;
-
-    const disciplinasUnicas = [...new Set(aulas
-        .map(a => a.Disciplinas?.Nome)
-        .filter(Boolean))].length;
+    useEffect(() => {
+        fetchAulas();
+    }, [fetchAulas]);
 
     // Formatar data e hora
     const formatDateTime = (dateTimeString: string | null) => {
         if (!dateTimeString) return "-";
-        const date = new Date(dateTimeString);
-        return date.toLocaleDateString("pt-BR", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit"
-        });
+        try {
+            const date = new Date(dateTimeString);
+            return date.toLocaleDateString("pt-BR", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit"
+            });
+        } catch (err) {
+            return "-";
+        }
     };
 
     // Formatar apenas data
     const formatDate = (dateString: string | null) => {
         if (!dateString) return "-";
-        const date = new Date(dateString);
-        return date.toLocaleDateString("pt-BR");
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString("pt-BR");
+        } catch (err) {
+            return "-";
+        }
     };
 
     // Formatar apenas hora
     const formatTime = (dateTimeString: string | null) => {
         if (!dateTimeString) return "-";
-        const date = new Date(dateTimeString);
-        return date.toLocaleTimeString("pt-BR", {
-            hour: "2-digit",
-            minute: "2-digit"
-        });
+        try {
+            const date = new Date(dateTimeString);
+            return date.toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit"
+            });
+        } catch (err) {
+            return "-";
+        }
     };
 
     // Determinar cor do status
@@ -222,32 +299,44 @@ export default function AulasTable() {
     const calcularDuracao = (inicio: string | null, fim: string | null) => {
         if (!inicio || !fim) return "-";
 
-        const inicioDate = new Date(inicio);
-        const fimDate = new Date(fim);
-        const diffMs = fimDate.getTime() - inicioDate.getTime();
-        const diffMinutos = Math.floor(diffMs / (1000 * 60));
+        try {
+            const inicioDate = new Date(inicio);
+            const fimDate = new Date(fim);
+            const diffMs = fimDate.getTime() - inicioDate.getTime();
+            const diffMinutos = Math.floor(diffMs / (1000 * 60));
 
-        if (diffMinutos < 60) return `${diffMinutos} min`;
-        const horas = Math.floor(diffMinutos / 60);
-        const minutos = diffMinutos % 60;
-        return `${horas}h${minutos > 0 ? ` ${minutos}min` : ''}`;
+            if (diffMinutos < 60) return `${diffMinutos} min`;
+            const horas = Math.floor(diffMinutos / 60);
+            const minutos = diffMinutos % 60;
+            return `${horas}h${minutos > 0 ? ` ${minutos}min` : ''}`;
+        } catch (err) {
+            return "-";
+        }
     };
 
     // Verificar se aula está próxima (nos próximos 30 minutos)
     const isAulaProxima = (dataHora: string | null) => {
-        if (!dataHora || !dataHora) return false;
-        const agora = new Date();
-        const aulaDate = new Date(dataHora);
-        const diffMs = aulaDate.getTime() - agora.getTime();
-        return diffMs > 0 && diffMs <= 30 * 60 * 1000; // Próximos 30 minutos
+        if (!dataHora) return false;
+        try {
+            const agora = new Date();
+            const aulaDate = new Date(dataHora);
+            const diffMs = aulaDate.getTime() - agora.getTime();
+            return diffMs > 0 && diffMs <= 30 * 60 * 1000; // Próximos 30 minutos
+        } catch (err) {
+            return false;
+        }
     };
 
     // Verificar se aula está atrasada
-    const isAulaAtrasada = (dataHora: string | null) => {
-        if (!dataHora || !dataHora) return false;
-        const agora = new Date();
-        const aulaDate = new Date(dataHora);
-        return aulaDate < agora;
+    const isAulaAtrasada = (dataHora: string | null, status: string | null) => {
+        if (!dataHora || status !== "agendada") return false;
+        try {
+            const agora = new Date();
+            const aulaDate = new Date(dataHora);
+            return aulaDate < agora;
+        } catch (err) {
+            return false;
+        }
     };
 
     // Contar alunos na aula
@@ -256,7 +345,8 @@ export default function AulasTable() {
     };
 
     // Handle delete
-    const handleDelete = async (id: number, descricao: string) => {
+    const handleDelete = async (id: number, descricao: string | null) => {
+        const desc = descricao || "Aula";
         if (!window.confirm(`Tem certeza que deseja excluir esta aula?`)) {
             return;
         }
@@ -275,28 +365,6 @@ export default function AulasTable() {
             console.error("Erro ao excluir aula:", err);
             toast.error("Erro ao excluir aula: " + err.message);
         }
-    };
-
-    // Handle search
-    const handleSearch = (term: string) => {
-        setSearchTerm(term);
-        setCurrentPage(1);
-    };
-
-    // Handle filter change
-    const handleFilterChange = (filter: {
-        status?: string;
-        professor?: string;
-        disciplina?: string;
-        dataInicio?: string;
-        dataFim?: string;
-    }) => {
-        if (filter.status !== undefined) setFilterStatus(filter.status);
-        if (filter.professor !== undefined) setFilterProfessor(filter.professor);
-        if (filter.disciplina !== undefined) setFilterDisciplina(filter.disciplina);
-        if (filter.dataInicio !== undefined) setFilterDataInicio(filter.dataInicio);
-        if (filter.dataFim !== undefined) setFilterDataFim(filter.dataFim);
-        setCurrentPage(1);
     };
 
     // Exportar dados
@@ -333,43 +401,8 @@ export default function AulasTable() {
         toast.success("Dados exportados com sucesso!");
     };
 
-    if (error && aulas.length === 0) {
-        return (
-            <div style={{ padding: "40px", textAlign: "center" }}>
-                <p style={{ color: "#dc2626", marginBottom: "16px" }}>{error}</p>
-                <button
-                    onClick={() => fetchAulas()}
-                    style={{
-                        padding: "10px 20px",
-                        background: "#4F46E5",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer"
-                    }}
-                >
-                    Tentar novamente
-                </button>
-            </div>
-        );
-    }
-
     return (
         <div>
-            {/* Header com estatísticas e filtros */}
-            {/* <AulasHeader
-                totalAulas={totalCount}
-                aulasAgendadas={aulasAgendadas}
-                aulasRealizadas={aulasRealizadas}
-                aulasCanceladas={aulasCanceladas}
-                professoresCount={professoresUnicos}
-                disciplinasCount={disciplinasUnicas}
-                onSearch={handleSearch}
-                onFilterChange={handleFilterChange}
-                professores={professores}
-                disciplinas={disciplinas}
-            /> */}
-
             {/* Tabela */}
             <div style={{
                 background: "#fff",
@@ -531,7 +564,7 @@ export default function AulasTable() {
                                                 color: "#9ca3af",
                                                 fontSize: "14px"
                                             }}>
-                                                {searchTerm || filterStatus || filterProfessor || filterDisciplina
+                                                {searchTerm || filterStatus || filterProfessor || filterDisciplina || filterDataInicio || filterDataFim
                                                     ? "Nenhuma aula encontrada com os filtros aplicados."
                                                     : "Nenhuma aula agendada."}
                                             </td>
@@ -541,7 +574,7 @@ export default function AulasTable() {
                                             const status = getStatusColor(aula.Status);
                                             const totalAlunos = contarAlunos(aula.Aulas_Alunos);
                                             const aulaProxima = isAulaProxima(aula.Data_hora_inicio);
-                                            const aulaAtrasada = isAulaAtrasada(aula.Data_hora_inicio) && aula.Status === "agendada";
+                                            const aulaAtrasada = isAulaAtrasada(aula.Data_hora_inicio, aula.Status);
 
                                             return (
                                                 <tr
@@ -788,7 +821,7 @@ export default function AulasTable() {
                                                             </button>
 
                                                             <button
-                                                                onClick={() => handleDelete(aula.Aula_ID, aula.Descricao || "Aula")}
+                                                                onClick={() => handleDelete(aula.Aula_ID, aula.Descricao)}
                                                                 style={{
                                                                     padding: "8px 12px",
                                                                     borderRadius: "6px",
@@ -815,42 +848,6 @@ export default function AulasTable() {
                                                                 <span style={{ fontSize: "14px" }}>🗑️</span>
                                                                 Excluir
                                                             </button>
-
-                                                            {aula.Status === "agendada" && (
-                                                                <button
-                                                                    onClick={() => {
-                                                                        // Lógica para cancelar aula
-                                                                        if (window.confirm("Deseja cancelar esta aula?")) {
-                                                                            console.log("Cancelar aula", aula.Aula_ID);
-                                                                        }
-                                                                    }}
-                                                                    style={{
-                                                                        padding: "8px 12px",
-                                                                        borderRadius: "6px",
-                                                                        border: "1px solid #fcd34d",
-                                                                        backgroundColor: "#fef3c7",
-                                                                        cursor: "pointer",
-                                                                        fontSize: "12px",
-                                                                        display: "flex",
-                                                                        alignItems: "center",
-                                                                        gap: "6px",
-                                                                        transition: "all 0.2s",
-                                                                        color: "#d97706",
-                                                                        fontWeight: "500"
-                                                                    }}
-                                                                    onMouseEnter={(e) => {
-                                                                        e.currentTarget.style.backgroundColor = "#fde68a";
-                                                                        e.currentTarget.style.borderColor = "#fbbf24";
-                                                                    }}
-                                                                    onMouseLeave={(e) => {
-                                                                        e.currentTarget.style.backgroundColor = "#fef3c7";
-                                                                        e.currentTarget.style.borderColor = "#fcd34d";
-                                                                    }}
-                                                                >
-                                                                    <span style={{ fontSize: "14px" }}>🚫</span>
-                                                                    Cancelar
-                                                                </button>
-                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -888,11 +885,11 @@ export default function AulasTable() {
             {/* CSS para animação de loading */}
             <style>
                 {`
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-        `}
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `}
             </style>
         </div>
     );

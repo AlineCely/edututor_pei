@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import Pagination from "../Table/Pagination";
-import TurmasHeader from "./TurmasHeader";
 import { toast } from "react-hot-toast";
 
 interface Turma {
@@ -27,26 +26,48 @@ interface Turma {
     }>;
 }
 
-export default function TurmasTable() {
+interface Props {
+    onStatsUpdate?: (stats: {
+        totalTurmas: number;
+        turmasAtivas: number;
+        turmasFinalizadas: number;
+        professoresCount: number;
+    }) => void;
+    externalSearchTerm?: string;
+    externalFilters?: { status?: string; professor?: string };
+}
+
+export default function TurmasTable({
+    onStatsUpdate,
+    externalSearchTerm = "",
+    externalFilters = {}
+}: Props) {
     const navigate = useNavigate();
     const [turmas, setTurmas] = useState<Turma[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [filterStatus, setFilterStatus] = useState<string>("");
+    const [searchTerm, setSearchTerm] = useState(externalSearchTerm);
+    const [filterStatus, setFilterStatus] = useState<string>(externalFilters.status || "");
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const [professores, setProfessores] = useState<any[]>([]);
     const itemsPerPage = 10;
 
-    // Buscar turmas
+    // Sincronizar com props externas
     useEffect(() => {
-        fetchTurmas();
-        fetchProfessores();
-    }, [searchTerm, filterStatus, currentPage]);
+        if (externalSearchTerm !== undefined) {
+            setSearchTerm(externalSearchTerm);
+        }
+    }, [externalSearchTerm]);
 
-    async function fetchTurmas() {
+    useEffect(() => {
+        if (externalFilters.status !== undefined) {
+            setFilterStatus(externalFilters.status);
+        }
+    }, [externalFilters]);
+
+    // Buscar turmas
+    const fetchTurmas = useCallback(async () => {
         try {
             setLoading(true);
 
@@ -102,55 +123,74 @@ export default function TurmasTable() {
 
             if (error) throw error;
 
-            setTurmas(data || []);
+            const turmasData = data || [];
+            setTurmas(turmasData);
             setTotalCount(count || 0);
             setTotalPages(Math.ceil((count || 0) / itemsPerPage));
-            setError(null);
+
+            // Calcular estatísticas e notificar componente pai
+            if (onStatsUpdate) {
+                const hoje = new Date();
+
+                const turmasAtivas = turmasData.filter(t => {
+                    if (!t.Data_fim) return true;
+                    const dataFim = new Date(t.Data_fim);
+                    return dataFim >= hoje;
+                }).length;
+
+                const turmasFinalizadas = turmasData.filter(t => {
+                    if (!t.Data_fim) return false;
+                    const dataFim = new Date(t.Data_fim);
+                    return dataFim < hoje;
+                }).length;
+
+                const professoresUnicos = [...new Set(turmasData
+                    .map(t => t.Professores?.Professor_ID)
+                    .filter(Boolean))].length;
+
+                onStatsUpdate({
+                    totalTurmas: count || 0,
+                    turmasAtivas,
+                    turmasFinalizadas,
+                    professoresCount: professoresUnicos
+                });
+            }
+
         } catch (err: any) {
             console.error("Erro ao buscar turmas:", err);
-            setError("Erro ao carregar turmas. Tente novamente.");
+            toast.error("Erro ao carregar turmas. Tente novamente.");
         } finally {
             setLoading(false);
         }
-    }
+    }, [searchTerm, filterStatus, currentPage, onStatsUpdate]);
 
-    async function fetchProfessores() {
-        try {
-            const { data, error } = await supabase
-                .from("Professores")
-                .select(`
-          Professor_ID,
-          Usuarios:Usuario_ID (
-            Nome
-          )
-        `)
-                .order("Professor_ID");
+    useEffect(() => {
+        fetchTurmas();
+    }, [fetchTurmas]);
 
-            if (error) throw error;
-            setProfessores(data || []);
-        } catch (err) {
-            console.error("Erro ao buscar professores:", err);
-        }
-    }
+    // Buscar professores para os filtros
+    useEffect(() => {
+        const fetchProfessores = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from("Professores")
+                    .select(`
+                        Professor_ID,
+                        Usuarios:Usuario_ID (
+                            Nome
+                        )
+                    `)
+                    .order("Professor_ID");
 
-    // Calcular estatísticas
-    const turmasAtivas = turmas.filter(t => {
-        if (!t.Data_fim) return true;
-        const hoje = new Date();
-        const dataFim = new Date(t.Data_fim);
-        return dataFim >= hoje;
-    }).length;
-
-    const turmasFinalizadas = turmas.filter(t => {
-        if (!t.Data_fim) return false;
-        const hoje = new Date();
-        const dataFim = new Date(t.Data_fim);
-        return dataFim < hoje;
-    }).length;
-
-    const professoresUnicos = [...new Set(turmas
-        .map(t => t.Professores?.Professor_ID)
-        .filter(Boolean))].length;
+                if (error) throw error;
+                setProfessores(data || []);
+            } catch (err) {
+                console.error("Erro ao buscar professores:", err);
+            }
+        };
+        
+        fetchProfessores();
+    }, []);
 
     // Formatar data
     const formatDate = (dateString: string | null) => {
@@ -225,18 +265,6 @@ export default function TurmasTable() {
             console.error("Erro ao excluir turma:", err);
             toast.error("Erro ao excluir turma: " + err.message);
         }
-    };
-
-    // Handle search
-    const handleSearch = (term: string) => {
-        setSearchTerm(term);
-        setCurrentPage(1);
-    };
-
-    // Handle filter change
-    const handleFilterChange = (filter: { status?: string; professor?: string }) => {
-        if (filter.status !== undefined) setFilterStatus(filter.status);
-        setCurrentPage(1);
     };
 
     // Exportar dados
@@ -691,9 +719,9 @@ export default function TurmasTable() {
                                 </div>
 
                                 <Pagination
-                                    currentPage={currentPage}
-                                    totalPages={totalPages}
-                                    onPageChange={(page) => setCurrentPage(page)}
+                                    // currentPage={currentPage}
+                                    // totalPages={totalPages}
+                                    // onPageChange={(page) => setCurrentPage(page)}
                                 />
                             </div>
                         )}

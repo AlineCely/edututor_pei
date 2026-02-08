@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import Pagination from "../Table/Pagination";
-import AlunosHeader from "./AlunosHeader";
 import { toast } from "react-hot-toast";
 
 interface Aluno {
@@ -22,43 +21,70 @@ interface Aluno {
     };
 }
 
-export default function AlunosTable() {
+interface Props {
+    onStatsUpdate?: (stats: {
+        totalAlunos: number;
+        alunosAtivos: number;
+        alunosPorEscola: { [key: string]: number };
+    }) => void;
+    externalSearchTerm?: string;
+    externalFilters?: { status?: string; escola?: string; cid?: string };
+}
+
+export default function AlunosTable({
+    onStatsUpdate,
+    externalSearchTerm = "",
+    externalFilters = {}
+}: Props) {
     const navigate = useNavigate();
     const [alunos, setAlunos] = useState<Aluno[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [filterStatus, setFilterStatus] = useState<string>("");
-    const [filterEscola, setFilterEscola] = useState<string>("");
-    const [filterCID, setFilterCID] = useState<string>("");
+    const [searchTerm, setSearchTerm] = useState(externalSearchTerm);
+    const [filterStatus, setFilterStatus] = useState<string>(externalFilters.status || "");
+    const [filterEscola, setFilterEscola] = useState<string>(externalFilters.escola || "");
+    const [filterCID, setFilterCID] = useState<string>(externalFilters.cid || "");
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const [escolas, setEscolas] = useState<any[]>([]);
     const itemsPerPage = 10;
 
-    // Buscar alunos e escolas
+    // Sincronizar com props externas
     useEffect(() => {
-        fetchAlunos();
-        fetchEscolas();
-    }, [searchTerm, filterStatus, filterEscola, filterCID, currentPage]);
+        if (externalSearchTerm !== undefined) {
+            setSearchTerm(externalSearchTerm);
+        }
+    }, [externalSearchTerm]);
 
-    async function fetchAlunos() {
+    useEffect(() => {
+        if (externalFilters.status !== undefined) {
+            setFilterStatus(externalFilters.status);
+        }
+        if (externalFilters.escola !== undefined) {
+            setFilterEscola(externalFilters.escola);
+        }
+        if (externalFilters.cid !== undefined) {
+            setFilterCID(externalFilters.cid);
+        }
+    }, [externalFilters]);
+
+    // Buscar alunos
+    const fetchAlunos = useCallback(async () => {
         try {
             setLoading(true);
 
             let query = supabase
                 .from("Alunos")
                 .select(`
-          *,
-          Escolas (
-            Nome
-          ),
-          Familias (
-            Nome_responsavel,
-            Telefone
-          )
-        `, { count: 'exact' });
+                    *,
+                    Escolas (
+                        Nome
+                    ),
+                    Familias (
+                        Nome_responsavel,
+                        Telefone
+                    )
+                `, { count: 'exact' });
 
             // Aplicar filtros
             if (filterStatus) {
@@ -69,18 +95,13 @@ export default function AlunosTable() {
                 query = query.eq("Escola_ID", filterEscola);
             }
 
-            // Filtro por CID (se tiver essa coluna na tabela)
-            // if (filterCID) {
-            //   query = query.eq("CID", filterCID);
-            // }
-
             if (searchTerm) {
                 query = query.or(`
-          Nome.ilike.%${searchTerm}%,
-          Serie.ilike.%${searchTerm}%,
-          Escolas.Nome.ilike.%${searchTerm}%,
-          Familias.Nome_responsavel.ilike.%${searchTerm}%
-        `);
+            Nome.ilike.%${searchTerm}%,
+            Serie.ilike.%${searchTerm}%,
+            Escolas.Nome.ilike.%${searchTerm}%,
+            Familias.Nome_responsavel.ilike.%${searchTerm}%
+            `);
             }
 
             // Paginação
@@ -95,54 +116,76 @@ export default function AlunosTable() {
 
             if (error) throw error;
 
-            setAlunos(data || []);
+            const alunosData = data || [];
+            setAlunos(alunosData);
             setTotalCount(count || 0);
             setTotalPages(Math.ceil((count || 0) / itemsPerPage));
-            setError(null);
+
+            // Calcular estatísticas e notificar componente pai
+            if (onStatsUpdate) {
+                const alunosAtivos = alunosData.filter(a => a.Status === "Ativo").length;
+
+                const alunosPorEscola = alunosData.reduce((acc, aluno) => {
+                    const escolaNome = aluno.Escolas?.Nome || "Sem escola";
+                    acc[escolaNome] = (acc[escolaNome] || 0) + 1;
+                    return acc;
+                }, {} as { [key: string]: number });
+
+                onStatsUpdate({
+                    totalAlunos: count || 0,
+                    alunosAtivos,
+                    alunosPorEscola
+                });
+            }
+
         } catch (err: any) {
             console.error("Erro ao buscar alunos:", err);
-            setError("Erro ao carregar alunos. Tente novamente.");
+            toast.error("Erro ao carregar alunos. Tente novamente.");
         } finally {
             setLoading(false);
         }
-    }
+    }, [searchTerm, filterStatus, filterEscola, filterCID, currentPage, onStatsUpdate]);
 
-    async function fetchEscolas() {
-        try {
-            const { data, error } = await supabase
-                .from("Escolas")
-                .select("Escola_ID, Nome")
-                .order("Nome");
+    useEffect(() => {
+        fetchAlunos();
+    }, [fetchAlunos]);
 
-            if (error) throw error;
-            setEscolas(data || []);
-        } catch (err) {
-            console.error("Erro ao buscar escolas:", err);
-        }
-    }
+    // Buscar escolas para os filtros
+    useEffect(() => {
+        const fetchEscolas = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from("Escolas")
+                    .select("Escola_ID, Nome")
+                    .order("Nome");
 
-    // Calcular estatísticas
-    const alunosAtivos = alunos.filter(a => a.Status === "Ativo").length;
-
-    const alunosPorEscola = alunos.reduce((acc, aluno) => {
-        const escolaNome = aluno.Escolas?.Nome || "Sem escola";
-        acc[escolaNome] = (acc[escolaNome] || 0) + 1;
-        return acc;
-    }, {} as { [key: string]: number });
+                if (error) throw error;
+                setEscolas(data || []);
+            } catch (err) {
+                console.error("Erro ao buscar escolas:", err);
+            }
+        };
+        
+        fetchEscolas();
+    }, []);
 
     // Calcular idade
     const calcularIdade = (dataNascimento: string | null) => {
         if (!dataNascimento) return "-";
-        const nascimento = new Date(dataNascimento);
-        const hoje = new Date();
-        let idade = hoje.getFullYear() - nascimento.getFullYear();
-        const mesDiff = hoje.getMonth() - nascimento.getMonth();
+        try {
+            const nascimento = new Date(dataNascimento);
+            const hoje = new Date();
+            let idade = hoje.getFullYear() - nascimento.getFullYear();
+            const mesDiff = hoje.getMonth() - nascimento.getMonth();
 
-        if (mesDiff < 0 || (mesDiff === 0 && hoje.getDate() < nascimento.getDate())) {
-            idade--;
+            if (mesDiff < 0 || (mesDiff === 0 && hoje.getDate() < nascimento.getDate())) {
+                idade--;
+            }
+
+            return `${idade} anos`;
+        } catch (err) {
+            return "-";
         }
-
-        return `${idade} anos`;
     };
 
     // Formatar data
@@ -193,28 +236,14 @@ export default function AlunosTable() {
         }
     };
 
-    // Handle search
-    const handleSearch = (term: string) => {
-        setSearchTerm(term);
-        setCurrentPage(1);
-    };
-
-    // Handle filter change
-    const handleFilterChange = (filter: { status?: string; escola?: string; cid?: string }) => {
-        if (filter.status !== undefined) setFilterStatus(filter.status);
-        if (filter.escola !== undefined) setFilterEscola(filter.escola);
-        if (filter.cid !== undefined) setFilterCID(filter.cid);
-        setCurrentPage(1);
-    };
-
     // Exportar dados
     const exportData = () => {
         const dataToExport = alunos.map(aluno => ({
             ID: aluno.Aluno_ID,
-            Nome: aluno.Nome,
+            Nome: aluno.Nome || "-",
             Idade: calcularIdade(aluno.Data_nascimento),
-            Série: aluno.Serie,
-            Status: aluno.Status,
+            Série: aluno.Serie || "-",
+            Status: aluno.Status ||"-",
             Escola: aluno.Escolas?.Nome || "-",
             Responsável: aluno.Familias?.Nome_responsavel || "-",
             Telefone: aluno.Familias?.Telefone || "-",
@@ -237,7 +266,7 @@ export default function AlunosTable() {
         toast.success("Dados exportados com sucesso!");
     };
 
-       return (
+    return (
         <div>
             {/* Tabela */}
             <div style={{

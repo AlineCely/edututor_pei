@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 
-interface UsuariosHeaderProps {
+interface Props {
   totalUsuarios: number;
   usuariosAtivos: number;
   usuariosPorTipo: {
@@ -18,7 +18,7 @@ export default function UsuariosHeader({
   usuariosPorTipo,
   onSearch,
   onFilterChange 
-}: UsuariosHeaderProps) {
+}: Props) {
   const navigate = useNavigate();
 
   return (
@@ -158,7 +158,7 @@ export default function UsuariosHeader({
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontSize: "20px", fontWeight: "700", color: "#5b21b6" }}>
-                {/* {usuariosPorTipo.GESTOR} */}
+                {usuariosPorTipo.GESTOR}
               </div>
               <div style={{ fontSize: "11px", color: "#8b5cf6", marginTop: "2px" }}>
                 Gestores
@@ -166,7 +166,7 @@ export default function UsuariosHeader({
             </div>
             <div>
               <div style={{ fontSize: "20px", fontWeight: "700", color: "#5b21b6" }}>
-                {/* {usuariosPorTipo.PROFISSIONAL} */}
+                {usuariosPorTipo.PROFISSIONAL}
               </div>
               <div style={{ fontSize: "11px", color: "#8b5cf6", marginTop: "2px" }}>
                 Profissionais
@@ -174,7 +174,7 @@ export default function UsuariosHeader({
             </div>
             <div>
               <div style={{ fontSize: "20px", fontWeight: "700", color: "#5b21b6" }}>
-                {/* {usuariosPorTipo.FAMILIA} */}
+                {usuariosPorTipo.FAMILIA}
               </div>
               <div style={{ fontSize: "11px", color: "#8b5cf6", marginTop: "2px" }}>
                 Famílias

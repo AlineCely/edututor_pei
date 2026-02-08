@@ -1,13 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Pagination from "../Table/Pagination";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
-import ProfissionaisHeader from "./ProfissionaisHeader";
 import { toast } from "react-hot-toast";
 
-interface Props {
-  onTotalChange?: (total: number) => void;
-}
 
 interface Usuario {
   Nome: string;
@@ -28,27 +24,49 @@ interface Profissional {
   Usuarios: Usuario | null;
 }
 
-export default function ProfissionaisTable({ onTotalChange }: Props) {
+interface Props {
+  onStatsUpdate?: (stats: {
+    totalProfissionais: number;
+    profissionaisPorTipo: { [key: string]: number };
+    valorMedioHora: number;
+  }) => void;
+  externalSearchTerm?: string;
+  externalFilters?: { disciplina?: string; tipo?: string };
+}
+
+export default function ProfissionaisTable({
+  onStatsUpdate,
+  externalSearchTerm = "",
+  externalFilters = {}
+}: Props) {
   const navigate = useNavigate();
   const [profissionais, setProfissionais] = useState<Profissional[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterDisciplina, setFilterDisciplina] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState(externalSearchTerm);
+  const [filterDisciplina, setFilterDisciplina] = useState<string>(externalFilters.disciplina || "");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const itemsPerPage = 10;
 
-  // 🔹 Carregar profissionais do banco de dados
+  // Sincronizar com props externas
   useEffect(() => {
-    fetchProfissionais();
-  }, [searchTerm, filterDisciplina, currentPage]);
+    if (externalSearchTerm !== undefined) {
+      setSearchTerm(externalSearchTerm);
+    }
+  }, [externalSearchTerm]);
 
-  async function fetchProfissionais() {
+  useEffect(() => {
+    if (externalFilters.disciplina !== undefined) {
+      setFilterDisciplina(externalFilters.disciplina);
+    }
+  }, [externalFilters]);
+
+  // 🔹 Carregar profissionais do banco de dados
+  const fetchProfissionais = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       let query = supabase
         .from("Professores")
         .select(`
@@ -86,7 +104,7 @@ export default function ProfissionaisTable({ onTotalChange }: Props) {
       // Paginação
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
-      
+
       query = query.range(from, to);
 
       const { data, error, count } = await query;
@@ -109,26 +127,36 @@ export default function ProfissionaisTable({ onTotalChange }: Props) {
         setProfissionais(profissionaisFormatados);
         setTotalCount(count || 0);
         setTotalPages(Math.ceil((count || 0) / itemsPerPage));
-        onTotalChange?.(profissionaisFormatados.length);
-        setError(null);
+
+        // Calcular estatísticas e notificar componente pai
+        if (onStatsUpdate) {
+          const valorMedioHora = profissionaisFormatados.reduce((sum, prof) =>
+            sum + (prof.Valor_hora || 0), 0) / (profissionaisFormatados.length || 1);
+
+          const profissionaisPorTipo = profissionaisFormatados.reduce((acc, prof) => {
+            const tipo = prof.Usuarios?.Tipo || "Sem tipo";
+            acc[tipo] = (acc[tipo] || 0) + 1;
+            return acc;
+          }, {} as { [key: string]: number });
+
+          onStatsUpdate({
+            totalProfissionais: count || 0,
+            profissionaisPorTipo,
+            valorMedioHora
+          });
+        }
       }
     } catch (error: any) {
       console.error("Erro ao carregar profissionais:", error);
-      setError("Erro ao carregar profissionais. Tente novamente.");
+      toast.error("Erro ao carregar profissionais. Tente novamente.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [searchTerm, filterDisciplina, currentPage, onStatsUpdate]);
 
-  // Calcular estatísticas
-  const valorMedioHora = profissionais.reduce((sum, prof) => 
-    sum + (prof.Valor_hora || 0), 0) / (profissionais.length || 1);
-  
-  const profissionaisPorTipo = profissionais.reduce((acc, prof) => {
-    const tipo = prof.Usuarios?.Tipo || "Sem tipo";
-    acc[tipo] = (acc[tipo] || 0) + 1;
-    return acc;
-  }, {} as { [key: string]: number });
+  useEffect(() => {
+    fetchProfissionais();
+  }, [fetchProfissionais]);
 
   // Formatar telefone
   const formatTelefone = (telefone: string) => {
@@ -167,18 +195,6 @@ export default function ProfissionaisTable({ onTotalChange }: Props) {
     }
   };
 
-  // Handle search
-  const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    setCurrentPage(1);
-  };
-
-  // Handle filter change
-  const handleFilterChange = (filter: { disciplina?: string; tipo?: string }) => {
-    if (filter.disciplina !== undefined) setFilterDisciplina(filter.disciplina);
-    setCurrentPage(1);
-  };
-
   // Exportar dados
   const exportData = () => {
     const dataToExport = profissionais.map(prof => ({
@@ -204,14 +220,12 @@ export default function ProfissionaisTable({ onTotalChange }: Props) {
     a.download = `profissionais_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
-    
+
     toast.success("Dados exportados com sucesso!");
   };
 
   return (
     <div>
-      
-
       {/* Tabela */}
       <div style={{
         background: "#fff",
@@ -236,10 +250,10 @@ export default function ProfissionaisTable({ onTotalChange }: Props) {
         ) : (
           <>
             {/* Contador e Exportação */}
-            <div style={{ 
-              display: "flex", 
-              justifyContent: "space-between", 
-              alignItems: "center", 
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
               padding: "16px 24px",
               borderBottom: "1px solid #e5e7eb",
               backgroundColor: "#f9fafb"
@@ -279,47 +293,47 @@ export default function ProfissionaisTable({ onTotalChange }: Props) {
 
             {/* Tabela */}
             <div style={{ overflowX: "auto" }}>
-              <table style={{ 
-                width: "100%", 
+              <table style={{
+                width: "100%",
                 borderCollapse: "collapse",
-                minWidth: "800px" 
+                minWidth: "800px",
               }}>
                 <thead>
-                  <tr style={{ 
+                  <tr style={{
                     borderBottom: "2px solid #e5e7eb",
-                    backgroundColor: "#f9fafb"
+                    backgroundColor: "#f9fafb",
                   }}>
                     <th style={{
-                      padding: "16px 12px",
+                      padding: "16px 24px",
                       textAlign: "left",
                       fontWeight: "600",
                       color: "#374151",
                       fontSize: "14px"
                     }}>Profissional</th>
                     <th style={{
-                      padding: "16px 12px",
+                      padding: "16px 24px",
                       textAlign: "left",
                       fontWeight: "600",
                       color: "#374151",
                       fontSize: "14px"
                     }}>Especialidades</th>
                     <th style={{
-                      padding: "16px 12px",
+                      padding: "16px 24px",
                       textAlign: "left",
                       fontWeight: "600",
                       color: "#374151",
                       fontSize: "14px"
                     }}>Contato</th>
                     <th style={{
-                      padding: "16px 12px",
+                      padding: "16px 24px",
                       textAlign: "left",
                       fontWeight: "600",
                       color: "#374151",
                       fontSize: "14px"
                     }}>Valor/Hora</th>
                     <th style={{
-                      padding: "16px 12px",
-                      textAlign: "left",
+                      padding: "16px 24px",
+                      textAlign: "center",
                       fontWeight: "600",
                       color: "#374151",
                       fontSize: "14px"
@@ -330,14 +344,14 @@ export default function ProfissionaisTable({ onTotalChange }: Props) {
                 <tbody>
                   {profissionais.length === 0 ? (
                     <tr>
-                      <td colSpan={5} style={{ 
-                        padding: "48px 24px", 
-                        textAlign: "center", 
+                      <td colSpan={5} style={{
+                        padding: "48px 24px",
+                        textAlign: "center",
                         color: "#9ca3af",
                         fontSize: "14px"
                       }}>
                         {searchTerm || filterDisciplina
-                          ? "Nenhum profissional encontrado com os filtros aplicados." 
+                          ? "Nenhum profissional encontrado com os filtros aplicados."
                           : "Nenhum profissional cadastrado."}
                       </td>
                     </tr>
@@ -354,36 +368,36 @@ export default function ProfissionaisTable({ onTotalChange }: Props) {
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = index % 2 === 0 ? "white" : "#fafafa"}
                       >
                         <td style={{
-                          padding: "16px 12px",
+                          padding: "16px 24px",
                           color: "#111827",
                           fontWeight: "500"
                         }}>
                           <div style={{ marginBottom: "4px" }}>
                             {prof.Usuarios?.Nome || "-"}
                           </div>
-                          <div style={{ 
-                            fontSize: "12px", 
+                          <div style={{
+                            fontSize: "12px",
                             color: "#6b7280"
                           }}>
                             ID: #{prof.Professor_ID.toString().padStart(3, '0')}
                           </div>
                         </td>
                         <td style={{
-                          padding: "16px 12px",
+                          padding: "16px 24px",
                           color: "#111827"
                         }}>
                           <div style={{ marginBottom: "4px" }}>
                             {prof.Especialidades || "-"}
                           </div>
-                          <div style={{ 
-                            fontSize: "12px", 
+                          <div style={{
+                            fontSize: "12px",
                             color: "#6b7280"
                           }}>
                             {prof.Formacao ? prof.Formacao.substring(0, 30) + (prof.Formacao.length > 30 ? "..." : "") : ""}
                           </div>
                         </td>
                         <td style={{
-                          padding: "16px 12px",
+                          padding: "16px 24px",
                           color: "#6b7280"
                         }}>
                           <div style={{ marginBottom: "4px" }}>
@@ -394,11 +408,11 @@ export default function ProfissionaisTable({ onTotalChange }: Props) {
                           </div>
                         </td>
                         <td style={{
-                          padding: "16px 12px",
+                          padding: "16px 24px",
                           color: "#111827",
                           fontWeight: "500"
                         }}>
-                          {prof.Valor_hora ? 
+                          {prof.Valor_hora ?
                             <div>
                               <div style={{ color: "#059669", fontWeight: "600" }}>
                                 R$ {prof.Valor_hora.toFixed(2)}
@@ -408,14 +422,14 @@ export default function ProfissionaisTable({ onTotalChange }: Props) {
                                   {prof.Total_aulas} aulas
                                 </div>
                               )}
-                            </div> : 
+                            </div> :
                             "-"
                           }
                         </td>
                         <td style={{
-                          padding: "16px 12px"
+                          padding: "16px 24px"
                         }}>
-                          <div style={{ display: "flex", gap: "8px" }}>
+                          <div style={{ display: "flex", justifyContent: "center", gap: "8px" }}>
                             <button
                               style={{
                                 padding: "8px 12px",

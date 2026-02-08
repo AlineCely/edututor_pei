@@ -25,18 +25,35 @@ interface Avaliacao {
   };
 }
 
-export default function AvaliacoesTable() {
+interface AvaliacoesTableProps {
+    searchTerm?: string;
+    filters?: any;
+    onUpdateStats?: (stats: {
+        totalAvaliacoes: number;
+        mediaGeral: number;
+        avaliacoesPorStatus: {
+            positivas: number;
+            neutras: number;
+            negativas: number;
+        };
+        professoresAvaliados: number;
+        aulasAvaliadas: number;
+    }) => void;
+    onUpdateProfessores?: (professores: any[]) => void;
+    onUpdateAulas?: (aulas: any[]) => void;
+}
+
+export default function AvaliacoesTable({ 
+    searchTerm = "", 
+    filters = {}, 
+    onUpdateStats,
+    onUpdateProfessores,
+    onUpdateAulas 
+}: AvaliacoesTableProps) {
   const navigate = useNavigate();
   const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterProfessor, setFilterProfessor] = useState<string>("");
-  const [filterAula, setFilterAula] = useState<string>("");
-  const [filterNotaMin, setFilterNotaMin] = useState<number | undefined>();
-  const [filterNotaMax, setFilterNotaMax] = useState<number | undefined>();
-  const [filterDataInicio, setFilterDataInicio] = useState<string>("");
-  const [filterDataFim, setFilterDataFim] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -49,7 +66,7 @@ export default function AvaliacoesTable() {
     fetchAvaliacoes();
     fetchProfessores();
     fetchAulas();
-  }, [searchTerm, filterProfessor, filterAula, filterNotaMin, filterNotaMax, filterDataInicio, filterDataFim, currentPage]);
+  }, [searchTerm, filters, currentPage]);
 
   async function fetchAvaliacoes() {
     try {
@@ -74,43 +91,39 @@ export default function AvaliacoesTable() {
           )
         `, { count: 'exact' });
 
-      // Aplicar filtros
+      // Aplicar filtros das props
       if (searchTerm) {
         query = query.ilike("Comentario", `%${searchTerm}%`);
       }
 
-      if (filterProfessor) {
-        query = query.eq("Professor_ID", filterProfessor);
+      if (filters.professor) {
+        query = query.eq("Professor_ID", filters.professor);
       }
 
-      if (filterAula) {
-        query = query.eq("Aula_ID", filterAula);
+      if (filters.aula) {
+        query = query.eq("Aula_ID", filters.aula);
       }
 
-      if (filterNotaMin !== undefined) {
-        query = query.gte("Nota", filterNotaMin);
+      if (filters.notaMin !== undefined) {
+        query = query.gte("Nota", filters.notaMin);
       }
 
-      if (filterNotaMax !== undefined) {
-        query = query.lte("Nota", filterNotaMax);
+      if (filters.notaMax !== undefined) {
+        query = query.lte("Nota", filters.notaMax);
       }
 
-      if (filterDataInicio) {
-        query = query.gte("created_at", `${filterDataInicio}T00:00:00`);
+      if (filters.dataInicio) {
+        query = query.gte("created_at", `${filters.dataInicio}T00:00:00`);
       }
 
-      if (filterDataFim) {
-        query = query.lte("created_at", `${filterDataFim}T23:59:59`);
+      if (filters.dataFim) {
+        query = query.lte("created_at", `${filters.dataFim}T23:59:59`);
       }
 
       // Paginação
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
       
-    //   query = query
-    //     .order("created_at", { ascending: false })
-    //     .range(from, to);
-
       const { data, error, count } = await query;
 
       if (error) throw error;
@@ -140,7 +153,11 @@ export default function AvaliacoesTable() {
         .order("Professor_ID");
 
       if (error) throw error;
-      setProfessores(data || []);
+      const professoresData = data || [];
+      setProfessores(professoresData);
+      if (onUpdateProfessores) {
+        onUpdateProfessores(professoresData);
+      }
     } catch (err) {
       console.error("Erro ao buscar professores:", err);
     }
@@ -160,7 +177,11 @@ export default function AvaliacoesTable() {
         .order("Data_hora_inicio", { ascending: false });
 
       if (error) throw error;
-      setAulas(data || []);
+      const aulasData = data || [];
+      setAulas(aulasData);
+      if (onUpdateAulas) {
+        onUpdateAulas(aulasData);
+      }
     } catch (err) {
       console.error("Erro ao buscar aulas:", err);
     }
@@ -185,6 +206,19 @@ export default function AvaliacoesTable() {
   const aulasAvaliadas = [...new Set(avaliacoes
     .map(av => av.Aulas?.Aula_ID)
     .filter(Boolean))].length;
+
+  // Atualizar estatísticas no componente pai
+  useEffect(() => {
+    if (onUpdateStats) {
+      onUpdateStats({
+        totalAvaliacoes,
+        mediaGeral,
+        avaliacoesPorStatus,
+        professoresAvaliados,
+        aulasAvaliadas
+      });
+    }
+  }, [avaliacoes]);
 
   // Formatar data
   const formatDate = (dateString: string | null) => {
@@ -278,30 +312,6 @@ export default function AvaliacoesTable() {
     }
   };
 
-  // Handle search
-  const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    setCurrentPage(1);
-  };
-
-  // Handle filter change
-  const handleFilterChange = (filter: { 
-    professor?: string; 
-    aula?: string;
-    notaMin?: number;
-    notaMax?: number;
-    dataInicio?: string;
-    dataFim?: string;
-  }) => {
-    if (filter.professor !== undefined) setFilterProfessor(filter.professor);
-    if (filter.aula !== undefined) setFilterAula(filter.aula);
-    if (filter.notaMin !== undefined) setFilterNotaMin(filter.notaMin);
-    if (filter.notaMax !== undefined) setFilterNotaMax(filter.notaMax);
-    if (filter.dataInicio !== undefined) setFilterDataInicio(filter.dataInicio);
-    if (filter.dataFim !== undefined) setFilterDataFim(filter.dataFim || "");
-    setCurrentPage(1);
-  };
-
   // Exportar dados
   const exportData = () => {
     const dataToExport = avaliacoes.map(avaliacao => {
@@ -358,19 +368,6 @@ export default function AvaliacoesTable() {
 
   return (
     <div>
-      {/* Header com estatísticas e filtros */}
-      {/* <AvaliacoesHeader
-        totalAvaliacoes={totalAvaliacoes}
-        mediaGeral={mediaGeral}
-        avaliacoesPorStatus={avaliacoesPorStatus}
-        professoresAvaliados={professoresAvaliados}
-        aulasAvaliadas={aulasAvaliadas}
-        onSearch={handleSearch}
-        onFilterChange={handleFilterChange}
-        professores={professores}
-        aulas={aulas}
-      /> */}
-
       {/* Tabela */}
       <div style={{
         background: "#fff",
@@ -523,7 +520,7 @@ export default function AvaliacoesTable() {
                         color: "#9ca3af",
                         fontSize: "14px"
                       }}>
-                        {searchTerm || filterProfessor || filterAula || filterNotaMin || filterNotaMax
+                        {searchTerm || filters.professor || filters.aula || filters.notaMin || filters.notaMax
                           ? "Nenhuma avaliação encontrada com os filtros aplicados." 
                           : "Nenhuma avaliação registrada."}
                       </td>
@@ -780,9 +777,9 @@ export default function AvaliacoesTable() {
                 </div>
                 
                 <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={(page) => setCurrentPage(page)}
+                  // currentPage={currentPage}
+                  // totalPages={totalPages}
+                  // onPageChange={(page) => setCurrentPage(page)}
                 />
               </div>
             )}

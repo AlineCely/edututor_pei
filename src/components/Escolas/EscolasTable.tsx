@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import Pagination from "../Table/Pagination";
+import toast from "react-hot-toast";
 // import EscolasHeader from "./EscolasHeader";
 
 interface Escola {
@@ -16,31 +17,52 @@ interface Escola {
     Plataforma_ID?: number;
 }
 
-export default function EscolasTable() {
+interface Props {
+    onStatsUpdate?: (stats: {
+        totalEscolas: number;
+        escolasAtivas: number;
+    }) => void;
+        externalSearchTerm?: string;
+        externalFilters?: { status?: string };
+    }
+
+export default function EscolasTable({
+        onStatsUpdate,
+        externalSearchTerm = "",
+        externalFilters = {}
+    }: Props) {
     const navigate = useNavigate();
     const [escolas, setEscolas] = useState<Escola[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [filterStatus, setFilterStatus] = useState<string>("");
+    const [searchTerm, setSearchTerm] = useState(externalSearchTerm);
+    const [filterStatus, setFilterStatus] = useState<string>(externalFilters.status || "" );
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const itemsPerPage = 10;
 
-    // Buscar escolas
+    // Sincronizar com props externas
     useEffect(() => {
-        fetchEscolas();
-    }, [searchTerm, filterStatus, currentPage]);
+        if (externalSearchTerm !== undefined) {
+            setSearchTerm(externalSearchTerm);
+        }
+    }, [externalSearchTerm]);
 
-    async function fetchEscolas() {
+    useEffect(() => {
+        if (externalFilters.status !== undefined) {
+            setFilterStatus(externalFilters.status);
+        }
+    }, [externalFilters]);
+
+    // Buscar escolas    
+    const fetchEscolas = useCallback( async () => {
         try {
             setLoading(true);
-
+            
             let query = supabase
-                .from("Escolas")
-                .select("*", { count: 'exact' });
-
+            .from("Escolas")
+            .select("*", { count: 'exact' });
+            
             // Aplicar filtros
             if (filterStatus) {
                 query = query.eq("Status", filterStatus);
@@ -49,33 +71,45 @@ export default function EscolasTable() {
             if (searchTerm) {
                 query = query.or(`Nome.ilike.%${searchTerm}%,CNPJ.ilike.%${searchTerm}%,Email.ilike.%${searchTerm}%`);
             }
-
+            
             // Paginação
             const from = (currentPage - 1) * itemsPerPage;
             const to = from + itemsPerPage - 1;
-
+            
             // query = query
             //     .order("created_at", { ascending: false })
             //     .range(from, to);
-
+            
             const { data, error, count } = await query;
-
+            
             if (error) throw error;
+            
+            const escolasData = data || [];
 
-            setEscolas(data || []);
+            setEscolas(escolasData);
             setTotalCount(count || 0);
             setTotalPages(Math.ceil((count || 0) / itemsPerPage));
-            setError(null);
+
+            // Calcular estatísticas e notificar componente pai
+            if (onStatsUpdate) {
+                const escolasAtivas = escolasData.filter(e => e.Status === "Ativo").length;
+                
+                onStatsUpdate({
+                    totalEscolas: count || 0,
+                    escolasAtivas
+                });
+            }
         } catch (err: any) {
             console.error("Erro ao buscar escolas:", err);
-            setError("Erro ao carregar escolas. Tente novamente.");
+            toast.error("Erro ao carregar escolas. Tente novamente.");
         } finally {
             setLoading(false);
         }
-    }
-
-    // Calcular estatísticas
-    const escolasAtivas = escolas.filter(e => e.Status === "Ativo").length;
+    }, [searchTerm, filterStatus, currentPage, onStatsUpdate]);
+    
+    useEffect(() => {
+        fetchEscolas();
+    }, [fetchEscolas]);
 
     // Formatar data
     const formatDate = (dateString: string) => {
@@ -107,8 +141,8 @@ export default function EscolasTable() {
                 .eq("Escola_ID", id);
 
             if (error) throw error;
-
-            // toast.success("Escola excluída com sucesso!");
+            
+            toast.success("Escola excluída com sucesso!");
             fetchEscolas(); // Recarregar a lista
         } catch (err: any) {
             console.error("Erro ao excluir escola:", err);
@@ -116,49 +150,8 @@ export default function EscolasTable() {
         }
     };
 
-    // Handle search
-    const handleSearch = (term: string) => {
-        setSearchTerm(term);
-        setCurrentPage(1);
-    };
-
-    // Handle filter change
-    const handleFilterChange = (filter: { status?: string }) => {
-        setFilterStatus(filter.status || "");
-        setCurrentPage(1);
-    };
-
-    // if (error && escolas.length === 0) {
-    //     return (
-    //         <div style={{ padding: "40px", textAlign: "center" }}>
-    //             <p style={{ color: "#dc2626", marginBottom: "16px" }}>{error}</p>
-    //             <button
-    //                 onClick={() => fetchEscolas()}
-    //                 style={{
-    //                     padding: "10px 20px",
-    //                     background: "#4F46E5",
-    //                     color: "#fff",
-    //                     border: "none",
-    //                     borderRadius: "6px",
-    //                     cursor: "pointer"
-    //                 }}
-    //             >
-    //                 Tentar novamente
-    //             </button>
-    //         </div>
-    //     );
-    // }
-
     return (
         <div>
-            {/* Header com estatísticas e filtros */}
-            {/* <EscolasHeader
-                totalEscolas={totalCount}
-                escolasAtivas={escolasAtivas}
-                onSearch={handleSearch}
-                onFilterChange={handleFilterChange}
-            /> */}
-
             {/* Tabela */}
             <div style={{
                 background: "#fff",
@@ -478,9 +471,9 @@ export default function EscolasTable() {
                                 </div>
 
                                 <Pagination
-                                    // currentPage={currentPage}
-                                    // totalPages={totalPages}
-                                    // onPageChange={(page) => setCurrentPage(page)}
+                                // currentPage={currentPage}
+                                // totalPages={totalPages}
+                                // onPageChange={(page) => setCurrentPage(page)}
                                 />
                             </div>
                         )}

@@ -9,7 +9,7 @@ interface Props {
   onSearch: (term: string) => void;
   onFilterChange: (filter: { status?: string; categoria?: string; plataforma?: string }) => void;
   categoriasDisponiveis: string[];
-  plataformas: any[];
+  // plataformas: any[];
 }
 
 export default function DisciplinasHeader({ 

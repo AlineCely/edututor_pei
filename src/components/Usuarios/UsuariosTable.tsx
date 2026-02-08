@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import Pagination from "../Table/Pagination";
@@ -16,28 +16,53 @@ interface Usuario {
   last_sign_in_at?: string;
 }
 
-export default function UsuariosTable() {
+interface Props {
+  onStatsUpdate?: (stats: {
+    totalUsuarios: number;
+    usuariosAtivos: number;
+    usuariosPorTipo: { GESTOR: number; PROFISSIONAL: number; FAMILIA: number };
+  }) => void;
+  externalSearchTerm?: string;
+  externalFilters?: { status?: string; tipo?: string };
+}
+
+export default function UsuariosTable({
+  onStatsUpdate,
+  externalSearchTerm = "",
+  externalFilters = {}
+}: Props) {
   const navigate = useNavigate();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("");
-  const [filterTipo, setFilterTipo] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState(externalSearchTerm);
+  const [filterStatus, setFilterStatus] = useState<string>(externalFilters.status || "");
+  const [filterTipo, setFilterTipo] = useState<string>(externalFilters.tipo || "");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const itemsPerPage = 10;
 
-  // Buscar usuários
+  // Sincronizar com props externas
   useEffect(() => {
-    fetchUsuarios();
-  }, [searchTerm, filterStatus, filterTipo, currentPage]);
+    if (externalSearchTerm !== undefined) {
+      setSearchTerm(externalSearchTerm);
+    }
+  }, [externalSearchTerm]);
 
-  async function fetchUsuarios() {
+  useEffect(() => {
+    if (externalFilters.status !== undefined) {
+      setFilterStatus(externalFilters.status);
+    }
+    if (externalFilters.tipo !== undefined) {
+      setFilterTipo(externalFilters.tipo);
+    }
+  }, [externalFilters]);
+
+  // Buscar usuários
+  const fetchUsuarios = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       let query = supabase
         .from("Usuarios")
         .select("*", { count: 'exact' });
@@ -58,7 +83,7 @@ export default function UsuariosTable() {
       // Paginação
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
-      
+
       query = query
         .order("Data_criacao", { ascending: false })
         .range(from, to);
@@ -70,23 +95,33 @@ export default function UsuariosTable() {
       setUsuarios(data || []);
       setTotalCount(count || 0);
       setTotalPages(Math.ceil((count || 0) / itemsPerPage));
-      setError(null);
+
+      if (onStatsUpdate) {
+        const usuariosAtivos = (data || []).filter(u => u.Status === "Ativo").length;
+        const usuariosPorTipo = {
+          GESTOR: (data || []).filter(u => u.Tipo === "GESTOR").length,
+          PROFISSIONAL: (data || []).filter(u => u.Tipo === "PROFISSIONAL").length,
+          FAMILIA: (data || []).filter(u => u.Tipo === "FAMILIA").length
+        };
+
+        onStatsUpdate({
+          totalUsuarios: count || 0,
+          usuariosAtivos,
+          usuariosPorTipo
+        });
+      }
+
     } catch (err: any) {
       console.error("Erro ao buscar usuários:", err);
-      setError("Erro ao carregar usuários. Tente novamente.");
+      toast.error("Erro ao carregar usuários. Tente novamente.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [searchTerm, filterStatus, filterTipo, currentPage, onStatsUpdate]);
 
-  // Calcular estatísticas
-  const usuariosAtivos = usuarios.filter(u => u.Status === "Ativo").length;
-  
-  const usuariosPorTipo = {
-    GESTOR: usuarios.filter(u => u.Tipo === "GESTOR").length,
-    PROFISSIONAL: usuarios.filter(u => u.Tipo === "PROFISSIONAL").length,
-    FAMILIA: usuarios.filter(u => u.Tipo === "FAMILIA").length
-  };
+  useEffect(() => {
+    fetchUsuarios();
+  }, [fetchUsuarios]);
 
   // Formatar data
   const formatDate = (dateString: string) => {
@@ -112,7 +147,7 @@ export default function UsuariosTable() {
   // Formatar última atividade
   const formatUltimaAtividade = (dateString?: string) => {
     if (!dateString) return "Nunca";
-    
+
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -121,7 +156,7 @@ export default function UsuariosTable() {
     if (diffDays === 0) return "Hoje";
     if (diffDays === 1) return "Ontem";
     if (diffDays < 7) return `${diffDays} dias atrás`;
-    
+
     return formatDate(dateString);
   };
 
@@ -148,19 +183,6 @@ export default function UsuariosTable() {
     }
   };
 
-  // Handle search
-  const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    setCurrentPage(1);
-  };
-
-  // Handle filter change
-  const handleFilterChange = (filter: { status?: string; tipo?: string }) => {
-    if (filter.status !== undefined) setFilterStatus(filter.status);
-    if (filter.tipo !== undefined) setFilterTipo(filter.tipo);
-    setCurrentPage(1);
-  };
-
   // Handle reset password
   const handleResetPassword = async (email: string) => {
     if (!window.confirm(`Deseja enviar email de redefinição de senha para ${email}?`)) {
@@ -181,10 +203,8 @@ export default function UsuariosTable() {
     }
   };
 
- 
-
   return (
-    <div>      
+    <div>
 
       {/* Tabela */}
       <div style={{
@@ -211,73 +231,73 @@ export default function UsuariosTable() {
           <>
             {/* Tabela */}
             <div style={{ overflowX: "auto" }}>
-              <table style={{ 
-                width: "100%", 
+              <table style={{
+                width: "100%",
                 borderCollapse: "collapse",
-                minWidth: "1000px" 
+                minWidth: "1000px"
               }}>
                 <thead>
-                  <tr style={{ 
+                  <tr style={{
                     backgroundColor: "#f9fafb",
-                    borderBottom: "1px solid #e5e7eb" 
+                    borderBottom: "1px solid #e5e7eb"
                   }}>
-                    <th style={{ 
-                      padding: "16px 24px", 
-                      textAlign: "left", 
+                    <th style={{
+                      padding: "16px 24px",
+                      textAlign: "left",
                       fontSize: "12px",
                       fontWeight: "600",
                       color: "#6b7280",
                       textTransform: "uppercase",
                       letterSpacing: "0.05em"
                     }}>ID</th>
-                    <th style={{ 
-                      padding: "16px 24px", 
-                      textAlign: "left", 
+                    <th style={{
+                      padding: "16px 24px",
+                      textAlign: "left",
                       fontSize: "12px",
                       fontWeight: "600",
                       color: "#6b7280",
                       textTransform: "uppercase",
                       letterSpacing: "0.05em"
                     }}>Usuário</th>
-                    <th style={{ 
-                      padding: "16px 24px", 
-                      textAlign: "left", 
+                    <th style={{
+                      padding: "16px 24px",
+                      textAlign: "left",
                       fontSize: "12px",
                       fontWeight: "600",
                       color: "#6b7280",
                       textTransform: "uppercase",
                       letterSpacing: "0.05em"
                     }}>Contato</th>
-                    <th style={{ 
-                      padding: "16px 24px", 
-                      textAlign: "left", 
+                    <th style={{
+                      padding: "16px 24px",
+                      textAlign: "left",
                       fontSize: "12px",
                       fontWeight: "600",
                       color: "#6b7280",
                       textTransform: "uppercase",
                       letterSpacing: "0.05em"
                     }}>Tipo</th>
-                    <th style={{ 
-                      padding: "16px 24px", 
-                      textAlign: "left", 
+                    <th style={{
+                      padding: "16px 24px",
+                      textAlign: "left",
                       fontSize: "12px",
                       fontWeight: "600",
                       color: "#6b7280",
                       textTransform: "uppercase",
                       letterSpacing: "0.05em"
                     }}>Status</th>
-                    <th style={{ 
-                      padding: "16px 24px", 
-                      textAlign: "left", 
+                    <th style={{
+                      padding: "16px 24px",
+                      textAlign: "left",
                       fontSize: "12px",
                       fontWeight: "600",
                       color: "#6b7280",
                       textTransform: "uppercase",
                       letterSpacing: "0.05em"
                     }}>Cadastro</th>
-                    <th style={{ 
-                      padding: "16px 24px", 
-                      textAlign: "left", 
+                    <th style={{
+                      padding: "16px 24px",
+                      textAlign: "left",
                       fontSize: "12px",
                       fontWeight: "600",
                       color: "#6b7280",
@@ -290,22 +310,22 @@ export default function UsuariosTable() {
                 <tbody>
                   {usuarios.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ 
-                        padding: "48px 24px", 
-                        textAlign: "center", 
+                      <td colSpan={7} style={{
+                        padding: "48px 24px",
+                        textAlign: "center",
                         color: "#9ca3af",
                         fontSize: "14px"
                       }}>
                         {searchTerm || filterStatus || filterTipo
-                          ? "Nenhum usuário encontrado com os filtros aplicados." 
+                          ? "Nenhum usuário encontrado com os filtros aplicados."
                           : "Nenhum usuário cadastrado."}
                       </td>
                     </tr>
                   ) : (
                     usuarios.map((usuario) => (
-                      <tr 
-                        key={usuario.Usuario_ID} 
-                        style={{ 
+                      <tr
+                        key={usuario.Usuario_ID}
+                        style={{
                           borderBottom: "1px solid #f3f4f6",
                           transition: "background-color 0.2s"
                         }}
@@ -316,7 +336,7 @@ export default function UsuariosTable() {
                           e.currentTarget.style.backgroundColor = "#fff";
                         }}
                       >
-                        <td style={{ 
+                        <td style={{
                           padding: "16px 24px",
                           color: "#6b7280",
                           fontSize: "14px",
@@ -324,32 +344,32 @@ export default function UsuariosTable() {
                         }}>
                           #{usuario.Usuario_ID.toString().padStart(3, '0')}
                         </td>
-                        
+
                         <td style={{ padding: "16px 24px" }}>
                           <div style={{ fontWeight: "600", color: "#1f2937", marginBottom: "4px" }}>
                             {usuario.Nome}
                           </div>
-                          <div style={{ 
-                            fontSize: "12px", 
+                          <div style={{
+                            fontSize: "12px",
                             color: "#6b7280"
                           }}>
                             Última atividade: {formatUltimaAtividade(usuario.last_sign_in_at)}
                           </div>
                         </td>
-                        
+
                         <td style={{ padding: "16px 24px" }}>
                           <div style={{ fontSize: "14px", color: "#1f2937" }}>
                             {usuario.Email}
                           </div>
-                          <div style={{ 
-                            fontSize: "12px", 
+                          <div style={{
+                            fontSize: "12px",
                             color: "#6b7280",
                             marginTop: "4px"
                           }}>
                             {usuario.Telefone || "-"}
                           </div>
                         </td>
-                        
+
                         <td style={{ padding: "16px 24px" }}>
                           <span
                             style={{
@@ -359,16 +379,16 @@ export default function UsuariosTable() {
                               borderRadius: "20px",
                               fontSize: "12px",
                               fontWeight: "600",
-                              backgroundColor: usuario.Tipo === "GESTOR" ? "#f3e8ff" : 
-                                           usuario.Tipo === "PROFISSIONAL" ? "#f0f9ff" : "#f0fdf4",
-                              color: usuario.Tipo === "GESTOR" ? "#7c3aed" : 
-                                     usuario.Tipo === "PROFISSIONAL" ? "#0369a1" : "#16a34a"
+                              backgroundColor: usuario.Tipo === "GESTOR" ? "#f3e8ff" :
+                                usuario.Tipo === "PROFISSIONAL" ? "#f0f9ff" : "#f0fdf4",
+                              color: usuario.Tipo === "GESTOR" ? "#7c3aed" :
+                                usuario.Tipo === "PROFISSIONAL" ? "#0369a1" : "#16a34a"
                             }}
                           >
                             {formatTipo(usuario.Tipo)}
                           </span>
                         </td>
-                        
+
                         <td style={{ padding: "16px 24px" }}>
                           <span
                             style={{
@@ -378,16 +398,16 @@ export default function UsuariosTable() {
                               borderRadius: "20px",
                               fontSize: "12px",
                               fontWeight: "600",
-                              color: usuario.Status === "Ativo" ? "#059669" : 
-                                     usuario.Status === "Inativo" ? "#dc2626" : "#d97706",
-                              backgroundColor: usuario.Status === "Ativo" ? "#d1fae5" : 
-                                             usuario.Status === "Inativo" ? "#fee2e2" : "#fef3c7"
+                              color: usuario.Status === "Ativo" ? "#059669" :
+                                usuario.Status === "Inativo" ? "#dc2626" : "#d97706",
+                              backgroundColor: usuario.Status === "Ativo" ? "#d1fae5" :
+                                usuario.Status === "Inativo" ? "#fee2e2" : "#fef3c7"
                             }}
                           >
                             {usuario.Status === "Ativo" && (
-                              <span style={{ 
-                                width: "6px", 
-                                height: "6px", 
+                              <span style={{
+                                width: "6px",
+                                height: "6px",
                                 backgroundColor: "#059669",
                                 borderRadius: "50%",
                                 marginRight: "6px"
@@ -396,15 +416,15 @@ export default function UsuariosTable() {
                             {usuario.Status}
                           </span>
                         </td>
-                        
-                        <td style={{ 
+
+                        <td style={{
                           padding: "16px 24px",
                           fontSize: "14px",
                           color: "#6b7280"
                         }}>
                           {formatDate(usuario.created_at || "")}
                         </td>
-                        
+
                         <td style={{ padding: "16px 24px" }}>
                           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                             <button
@@ -435,7 +455,7 @@ export default function UsuariosTable() {
                               <span style={{ fontSize: "14px" }}>✏️</span>
                               Editar
                             </button>
-                            
+
                             <button
                               onClick={() => handleResetPassword(usuario.Email)}
                               style={{
@@ -464,7 +484,7 @@ export default function UsuariosTable() {
                               <span style={{ fontSize: "14px" }}>🔄</span>
                               Resetar Senha
                             </button>
-                            
+
                             <button
                               onClick={() => handleDelete(usuario.Usuario_ID, usuario.Nome)}
                               style={{
@@ -504,21 +524,21 @@ export default function UsuariosTable() {
 
             {/* Paginação */}
             {usuarios.length > 0 && totalPages > 1 && (
-              <div style={{ 
-                display: "flex", 
-                justifyContent: "space-between", 
-                alignItems: "center", 
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
                 padding: "20px 24px",
                 borderTop: "1px solid #e5e7eb"
               }}>
                 <div style={{ color: "#6b7280", fontSize: "14px" }}>
                   Mostrando {usuarios.length} de {totalCount} usuários
                 </div>
-                
+
                 <Pagination
-                //   currentPage={currentPage}
-                //   totalPages={totalPages}
-                //   onPageChange={(page) => setCurrentPage(page)}
+                  // currentPage={currentPage}
+                  // totalPages={totalPages}
+                  // onPageChange={(page) => setCurrentPage(page)}
                 />
               </div>
             )}

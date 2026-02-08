@@ -1,9 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { FaUsers, FaChalkboardTeacher, FaMoneyBillWave } from "react-icons/fa";
 
-interface ProfissionaisHeaderProps {
+interface Props {
   totalProfissionais: number;
-  total: number;
   profissionaisPorTipo: { [key: string]: number };
   valorMedioHora: number;
   onSearch: (term: string) => void;
@@ -12,12 +11,11 @@ interface ProfissionaisHeaderProps {
 
 export default function ProfissionaisHeader({ 
   totalProfissionais,
-  total, 
   profissionaisPorTipo,
   valorMedioHora,
   onSearch,
   onFilterChange 
-}: ProfissionaisHeaderProps) {
+}: Props) {
   const navigate = useNavigate();
 
   const stats = [
@@ -30,7 +28,7 @@ export default function ProfissionaisHeader({
     },
     {
       label: "Valor Médio/Hora",
-      // value: `R$ ${valorMedioHora.toFixed(2)}`,
+      value: `R$ ${valorMedioHora.toFixed(2)}`,
       icon: <FaMoneyBillWave style={{ color: "#059669", fontSize: "20px" }} />,
       bgColor: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)",
       borderColor: "#bbf7d0"
@@ -155,7 +153,7 @@ export default function ProfissionaisHeader({
             Tipos de Profissionais
           </div>
           <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-            {/* {Object.entries(profissionaisPorTipo).map(([tipo, quantidade], index) => (
+            {Object.entries(profissionaisPorTipo).map(([tipo, quantidade], index) => (
               <div key={index} style={{
                 flex: "1",
                 minWidth: "120px",
@@ -171,7 +169,7 @@ export default function ProfissionaisHeader({
                   {quantidade}
                 </div>
               </div>
-            ))} */}
+            ))}
           </div>
         </div>
       </div>

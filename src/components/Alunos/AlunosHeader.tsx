@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { FaUsers, FaGraduationCap, FaUserCheck } from "react-icons/fa";
 
-interface AlunosHeaderProps {
+interface Props {
   totalAlunos: number;
   alunosAtivos: number;
   alunosPorEscola: { [key: string]: number };
@@ -15,7 +15,7 @@ export default function AlunosHeader({
   alunosPorEscola,
   onSearch,
   onFilterChange 
-}: AlunosHeaderProps) {
+}: Props) {
   const navigate = useNavigate();
 
   const stats = [
@@ -166,7 +166,7 @@ export default function AlunosHeader({
             Distribuição por Escola
           </div>
           <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-            {/* {Object.entries(alunosPorEscola).map(([escola, quantidade], index) => (
+            {Object.entries(alunosPorEscola).map(([escola, quantidade], index) => (
               <div key={index} style={{
                 flex: "1",
                 minWidth: "120px",
@@ -182,7 +182,7 @@ export default function AlunosHeader({
                   {quantidade}
                 </div>
               </div>
-            ))} */}
+            ))}
           </div>
         </div>
       </div>

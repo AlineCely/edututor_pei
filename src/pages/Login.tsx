@@ -60,9 +60,8 @@ export default function Login() {
     }}>
 
       <div style={{ textAlign: "center", marginBottom: "24px" }}>
-        <img src="/logo.png" alt="EduTutor PEI" style={{ width: "48px", marginBottom: "8px" }} />
-        <h1 style={{ fontSize: "20px", fontWeight: "600", margin: 0 }}>EduTutor PEI</h1>
-        <p style={{ fontSize: "14px", color: "#777" }}>Gestão Multidisciplinar</p>
+        <img src="/logoTEA.png" alt="VinculoTEA" style={{ width: "130px", marginBottom: "8px" }} />
+        <p style={{ fontSize: "14px", color: "#777", margin: "0" }}>Gestão Multidisciplinar</p>
       </div>
 
       <form

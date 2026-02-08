@@ -97,20 +97,20 @@ export default function Sidebar() {
       }}
     >
       {/* Logo */}
-      <div style={{ textAlign: "center" }}>
-        {/* <img
-          src="../src/image/logo.jpeg"
-          alt="Logo EduTutor"
-          style={{ width: "150px", height: "auto" }}
-        /> */}
-        <div style={{
+      <div style={{ textAlign: "center", marginBottom: "8px" }}>
+        <img
+          src="../src/image/logoTEA.png"
+          alt="VinculoTEA"
+          style={{ width: "80px", height: "auto" }}
+        />
+        {/* <div style={{
           fontSize: "12px",
           color: "#666",
           fontWeight: "500",
           marginTop: "5px"
         }}>
           Plataforma Gestão Inclusiva - PGE
-        </div>
+        </div> */}
       </div>
 
       {/* Menu Categories */}

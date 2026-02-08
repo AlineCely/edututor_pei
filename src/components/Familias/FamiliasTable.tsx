@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import Pagination from "../Table/Pagination";
-
 import { toast } from "react-hot-toast";
 
 interface Familia {
@@ -21,28 +20,53 @@ interface Familia {
   }>;
 }
 
-export default function FamiliasTable() {
+interface Props {
+  onStatsUpdate?: (stats: {
+    totalFamilias: number;
+    familiasComTelefone: number;
+    familiasComEmail: number;
+  }) => void;
+  externalSearchTerm?: string;
+  externalFilters?: { telefone?: boolean; email?: boolean };
+}
+
+export default function FamiliasTable({
+  onStatsUpdate,
+  externalSearchTerm = "",
+  externalFilters = {}
+}: Props) {
   const navigate = useNavigate();
   const [familias, setFamilias] = useState<Familia[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterTelefone, setFilterTelefone] = useState<boolean | null>(null);
-  const [filterEmail, setFilterEmail] = useState<boolean | null>(null);
+  const [searchTerm, setSearchTerm] = useState(externalSearchTerm);
+  const [filterTelefone, setFilterTelefone] = useState<boolean | null>(externalFilters.telefone !== undefined ? externalFilters.telefone : null);
+  const [filterEmail, setFilterEmail] = useState<boolean | null>(externalFilters.email !== undefined ? externalFilters.email : null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const itemsPerPage = 10;
 
-  // Buscar famílias
+  // Sincronizar com props externas
   useEffect(() => {
-    fetchFamilias();
-  }, [searchTerm, filterTelefone, filterEmail, currentPage]);
+    if (externalSearchTerm !== undefined) {
+      setSearchTerm(externalSearchTerm);
+    }
+  }, [externalSearchTerm]);
 
-  async function fetchFamilias() {
+  useEffect(() => {
+    if (externalFilters.telefone !== undefined) {
+      setFilterTelefone(externalFilters.telefone);
+    }
+    if (externalFilters.email !== undefined) {
+      setFilterEmail(externalFilters.email);
+    }
+  }, [externalFilters]);
+
+  // Buscar famílias
+  const fetchFamilias = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       let query = supabase
         .from("Familias")
         .select(`
@@ -83,7 +107,7 @@ export default function FamiliasTable() {
       // Paginação
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
-      
+
       // query = query
       //   .order("created_at", { ascending: false })
       //   .range(from, to);
@@ -92,21 +116,34 @@ export default function FamiliasTable() {
 
       if (error) throw error;
 
-      setFamilias(data || []);
+      const familiasData = data || [];
+      setFamilias(familiasData);
       setTotalCount(count || 0);
       setTotalPages(Math.ceil((count || 0) / itemsPerPage));
-      setError(null);
+
+       // Calcular estatísticas e notificar componente pai
+      if (onStatsUpdate) {
+        const familiasComTelefone = familiasData.filter(f => f.Telefone && f.Telefone.trim() !== "").length;
+        const familiasComEmail = familiasData.filter(f => f.Email && f.Email.trim() !== "").length;
+        
+        onStatsUpdate({
+          totalFamilias: count || 0,
+          familiasComTelefone,
+          familiasComEmail
+        });
+      }
+
     } catch (err: any) {
       console.error("Erro ao buscar famílias:", err);
-      setError("Erro ao carregar famílias. Tente novamente.");
+      toast.error("Erro ao carregar famílias. Tente novamente.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [searchTerm, filterEmail, filterTelefone, currentPage, onStatsUpdate]);
 
-  // Calcular estatísticas
-  const familiasComTelefone = familias.filter(f => f.Telefone && f.Telefone.trim() !== "").length;
-  const familiasComEmail = familias.filter(f => f.Email && f.Email.trim() !== "").length;
+  useEffect(() => {
+    fetchFamilias();
+  }, [fetchFamilias]);
 
   // Formatar data
   const formatDate = (dateString: string) => {
@@ -167,19 +204,6 @@ export default function FamiliasTable() {
     }
   };
 
-  // Handle search
-  const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    setCurrentPage(1);
-  };
-
-  // Handle filter change
-  const handleFilterChange = (filter: { telefone?: boolean; email?: boolean }) => {
-    if (filter.telefone !== undefined) setFilterTelefone(filter.telefone);
-    if (filter.email !== undefined) setFilterEmail(filter.email);
-    setCurrentPage(1);
-  };
-
   return (
     <div>
 
@@ -208,64 +232,64 @@ export default function FamiliasTable() {
           <>
             {/* Tabela */}
             <div style={{ overflowX: "auto" }}>
-              <table style={{ 
-                width: "100%", 
+              <table style={{
+                width: "100%",
                 borderCollapse: "collapse",
-                minWidth: "1000px" 
+                minWidth: "1000px"
               }}>
                 <thead>
-                  <tr style={{ 
+                  <tr style={{
                     backgroundColor: "#f9fafb",
-                    borderBottom: "1px solid #e5e7eb" 
+                    borderBottom: "1px solid #e5e7eb"
                   }}>
-                    <th style={{ 
-                      padding: "16px 24px", 
-                      textAlign: "left", 
+                    <th style={{
+                      padding: "16px 24px",
+                      textAlign: "left",
                       fontSize: "12px",
                       fontWeight: "600",
                       color: "#6b7280",
                       textTransform: "uppercase",
                       letterSpacing: "0.05em"
                     }}>ID</th>
-                    <th style={{ 
-                      padding: "16px 24px", 
-                      textAlign: "left", 
+                    <th style={{
+                      padding: "16px 24px",
+                      textAlign: "left",
                       fontSize: "12px",
                       fontWeight: "600",
                       color: "#6b7280",
                       textTransform: "uppercase",
                       letterSpacing: "0.05em"
                     }}>Responsável</th>
-                    <th style={{ 
-                      padding: "16px 24px", 
-                      textAlign: "left", 
+                    <th style={{
+                      padding: "16px 24px",
+                      textAlign: "left",
                       fontSize: "12px",
                       fontWeight: "600",
                       color: "#6b7280",
                       textTransform: "uppercase",
                       letterSpacing: "0.05em"
                     }}>Contato</th>
-                    <th style={{ 
-                      padding: "16px 24px", 
-                      textAlign: "left", 
+                    <th style={{
+                      padding: "16px 24px",
+                      textAlign: "left",
                       fontSize: "12px",
                       fontWeight: "600",
                       color: "#6b7280",
                       textTransform: "uppercase",
                       letterSpacing: "0.05em"
                     }}>Alunos</th>
-                    <th style={{ 
-                      padding: "16px 24px", 
-                      textAlign: "left", 
+                    <th style={{
+                      padding: "16px 24px",
+                      textAlign: "left",
                       fontSize: "12px",
                       fontWeight: "600",
                       color: "#6b7280",
                       textTransform: "uppercase",
                       letterSpacing: "0.05em"
                     }}>Cadastro</th>
-                    <th style={{ 
-                      padding: "16px 24px", 
-                      textAlign: "left", 
+                    <th style={{
+                      padding: "16px 24px",
+                      textAlign: "left",
                       fontSize: "12px",
                       fontWeight: "600",
                       color: "#6b7280",
@@ -278,14 +302,14 @@ export default function FamiliasTable() {
                 <tbody>
                   {familias.length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={{ 
-                        padding: "48px 24px", 
-                        textAlign: "center", 
+                      <td colSpan={6} style={{
+                        padding: "48px 24px",
+                        textAlign: "center",
                         color: "#9ca3af",
                         fontSize: "14px"
                       }}>
                         {searchTerm || filterTelefone !== null || filterEmail !== null
-                          ? "Nenhuma família encontrada com os filtros aplicados." 
+                          ? "Nenhuma família encontrada com os filtros aplicados."
                           : "Nenhuma família cadastrada."}
                       </td>
                     </tr>
@@ -296,9 +320,9 @@ export default function FamiliasTable() {
                       const temAlunos = totalAlunos > 0;
 
                       return (
-                        <tr 
-                          key={familia.Familia_ID} 
-                          style={{ 
+                        <tr
+                          key={familia.Familia_ID}
+                          style={{
                             borderBottom: "1px solid #f3f4f6",
                             transition: "background-color 0.2s"
                           }}
@@ -309,7 +333,7 @@ export default function FamiliasTable() {
                             e.currentTarget.style.backgroundColor = "#fff";
                           }}
                         >
-                          <td style={{ 
+                          <td style={{
                             padding: "16px 24px",
                             color: "#6b7280",
                             fontSize: "14px",
@@ -317,27 +341,27 @@ export default function FamiliasTable() {
                           }}>
                             #{familia.Familia_ID.toString().padStart(3, '0')}
                           </td>
-                          
+
                           <td style={{ padding: "16px 24px" }}>
                             <div style={{ fontWeight: "600", color: "#1f2937", marginBottom: "4px" }}>
                               {familia.Nome_responsavel || "Sem responsável"}
                             </div>
-                            <div style={{ 
-                              fontSize: "12px", 
+                            <div style={{
+                              fontSize: "12px",
                               color: "#6b7280"
                             }}>
-                              {familia.Endereco ? 
-                                familia.Endereco.substring(0, 30) + (familia.Endereco.length > 30 ? "..." : "") : 
+                              {familia.Endereco ?
+                                familia.Endereco.substring(0, 30) + (familia.Endereco.length > 30 ? "..." : "") :
                                 "Sem endereço"
                               }
                             </div>
                           </td>
-                          
+
                           <td style={{ padding: "16px 24px" }}>
                             <div style={{ marginBottom: "4px" }}>
-                              <div style={{ 
-                                display: "flex", 
-                                alignItems: "center", 
+                              <div style={{
+                                display: "flex",
+                                alignItems: "center",
                                 gap: "6px",
                                 fontSize: "14px",
                                 color: familia.Telefone ? "#1f2937" : "#9ca3af"
@@ -347,9 +371,9 @@ export default function FamiliasTable() {
                               </div>
                             </div>
                             <div>
-                              <div style={{ 
-                                display: "flex", 
-                                alignItems: "center", 
+                              <div style={{
+                                display: "flex",
+                                alignItems: "center",
                                 gap: "6px",
                                 fontSize: "12px",
                                 color: familia.Email ? "#1f2937" : "#9ca3af"
@@ -359,11 +383,11 @@ export default function FamiliasTable() {
                               </div>
                             </div>
                           </td>
-                          
+
                           <td style={{ padding: "16px 24px" }}>
                             {temAlunos ? (
                               <div>
-                                <div style={{ 
+                                <div style={{
                                   display: "inline-flex",
                                   alignItems: "center",
                                   padding: "4px 10px",
@@ -387,8 +411,8 @@ export default function FamiliasTable() {
                                 )}
                               </div>
                             ) : (
-                              <span style={{ 
-                                fontSize: "12px", 
+                              <span style={{
+                                fontSize: "12px",
                                 color: "#9ca3af",
                                 fontStyle: "italic"
                               }}>
@@ -396,15 +420,15 @@ export default function FamiliasTable() {
                               </span>
                             )}
                           </td>
-                          
-                          <td style={{ 
+
+                          <td style={{
                             padding: "16px 24px",
                             fontSize: "14px",
                             color: "#6b7280"
                           }}>
                             {formatDate(familia.created_at || "")}
                           </td>
-                          
+
                           <td style={{ padding: "16px 24px" }}>
                             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                               <button
@@ -435,7 +459,7 @@ export default function FamiliasTable() {
                                 <span style={{ fontSize: "14px" }}>👁️</span>
                                 Ver
                               </button>
-                              
+
                               <button
                                 onClick={() => navigate(`/familias/${familia.Familia_ID}/editar`)}
                                 style={{
@@ -464,7 +488,7 @@ export default function FamiliasTable() {
                                 <span style={{ fontSize: "14px" }}>✏️</span>
                                 Editar
                               </button>
-                              
+
                               <button
                                 onClick={() => handleDelete(familia.Familia_ID, familia.Nome_responsavel || "Sem nome", temAlunos)}
                                 disabled={temAlunos}
@@ -541,17 +565,17 @@ export default function FamiliasTable() {
 
             {/* Paginação */}
             {familias.length > 0 && totalPages > 1 && (
-              <div style={{ 
-                display: "flex", 
-                justifyContent: "space-between", 
-                alignItems: "center", 
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
                 padding: "20px 24px",
                 borderTop: "1px solid #e5e7eb"
               }}>
                 <div style={{ color: "#6b7280", fontSize: "14px" }}>
                   Mostrando {familias.length} de {totalCount} famílias
                 </div>
-                
+
                 <Pagination
                 />
               </div>

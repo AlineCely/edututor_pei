@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import Pagination from "../Table/Pagination";
-// import DisponibilidadeHeader from "./DisponibilidadeHeader";
 import { toast } from "react-hot-toast";
 
 interface Disponibilidade {
@@ -22,15 +21,28 @@ interface Disponibilidade {
     };
 }
 
-export default function DisponibilidadeTable() {
+interface Props {
+    searchTerm?: string;
+    filters?: any;
+    onUpdateStats?: (stats: {
+        totalDisponibilidades: number;
+        disponibilidadesAtivas: number;
+        professoresComDisponibilidade: number;
+        horasTotaisDisponiveis: number;
+    }) => void;
+    onUpdateProfessores?: (professores: any[]) => void;
+}
+
+export default function DisponibilidadeTable({ 
+    searchTerm = "", 
+    filters = {}, 
+    onUpdateStats,
+    onUpdateProfessores
+}: Props) {
     const navigate = useNavigate();
     const [disponibilidades, setDisponibilidades] = useState<Disponibilidade[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [filterProfessor, setFilterProfessor] = useState<string>("");
-    const [filterDiaSemana, setFilterDiaSemana] = useState<string>("");
-    const [filterStatus, setFilterStatus] = useState<string>("");
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
@@ -52,7 +64,7 @@ export default function DisponibilidadeTable() {
     useEffect(() => {
         fetchDisponibilidades();
         fetchProfessores();
-    }, [searchTerm, filterProfessor, filterDiaSemana, filterStatus, currentPage]);
+    }, [searchTerm, filters, currentPage]);
 
     async function fetchDisponibilidades() {
         try {
@@ -61,30 +73,30 @@ export default function DisponibilidadeTable() {
             let query = supabase
                 .from("Disponibilidade")
                 .select(`
-          *,
-          Professores:Professor_ID (
-            Professor_ID,
-            Usuarios:Usuario_ID (
-              Nome
-            )
-          )
-        `, { count: 'exact' });
+                    *,
+                    Professores:Professor_ID (
+                        Professor_ID,
+                        Usuarios:Usuario_ID (
+                        Nome
+                        )
+                    )
+                `, { count: 'exact' });
 
             // Aplicar filtros
             if (searchTerm) {
                 query = query.or(`Professores.Usuarios.Nome.ilike.%${searchTerm}%`);
             }
 
-            if (filterProfessor) {
-                query = query.eq("Professor_ID", filterProfessor);
+            if (filters.professor) {
+                query = query.eq("Professor_ID", filters.professor);
             }
 
-            if (filterDiaSemana) {
-                query = query.eq("Dia_semana", filterDiaSemana);
+            if (filters.diaSemana) {
+                query = query.eq("Dia_semana", filters.diaSemana);
             }
 
-            if (filterStatus) {
-                query = query.eq("Status", filterStatus);
+            if (filters.status) {
+                query = query.eq("Status", filters.status);
             }
 
             // Paginação
@@ -92,12 +104,10 @@ export default function DisponibilidadeTable() {
             const to = from + itemsPerPage - 1;
 
             // Ordenar por dia da semana (ordem lógica) e hora de início
-            query = query
+            const { data, error, count } = await query
                 .order("Dia_semana", { ascending: true })
                 .order("Hora_inicio", { ascending: true })
                 .range(from, to);
-
-            const { data, error, count } = await query;
 
             if (error) throw error;
 
@@ -133,7 +143,11 @@ export default function DisponibilidadeTable() {
                 .order("Professor_ID");
 
             if (error) throw error;
-            setProfessores(data || []);
+            const professoresData = data || [];
+            setProfessores(professoresData);
+            if (onUpdateProfessores) {
+                onUpdateProfessores(professoresData);
+            }
         } catch (err) {
             console.error("Erro ao buscar professores:", err);
         }
@@ -156,6 +170,18 @@ export default function DisponibilidadeTable() {
 
         return total + (diffHoras > 0 ? diffHoras : 0);
     }, 0);
+
+        // Atualizar estatísticas no componente pai
+    useEffect(() => {
+        if (onUpdateStats) {
+            onUpdateStats({
+                totalDisponibilidades: totalCount,
+                disponibilidadesAtivas,
+                professoresComDisponibilidade,
+                horasTotaisDisponiveis
+            });
+        }
+    }, [totalCount, disponibilidadesAtivas, professoresComDisponibilidade, horasTotaisDisponiveis]);
 
     // Formatar hora
     const formatTime = (timeString: string | null) => {
@@ -243,24 +269,6 @@ export default function DisponibilidadeTable() {
         }
     };
 
-    // Handle search
-    const handleSearch = (term: string) => {
-        setSearchTerm(term);
-        setCurrentPage(1);
-    };
-
-    // Handle filter change
-    const handleFilterChange = (filter: {
-        professor?: string;
-        diaSemana?: string;
-        status?: string;
-    }) => {
-        if (filter.professor !== undefined) setFilterProfessor(filter.professor);
-        if (filter.diaSemana !== undefined) setFilterDiaSemana(filter.diaSemana);
-        if (filter.status !== undefined) setFilterStatus(filter.status);
-        setCurrentPage(1);
-    };
-
     // Exportar dados
     const exportData = () => {
         const dataToExport = disponibilidades.map(disp => {
@@ -332,17 +340,6 @@ export default function DisponibilidadeTable() {
 
     return (
         <div>
-            {/* Header com estatísticas e filtros */}
-            {/* <DisponibilidadeHeader
-                totalDisponibilidades={totalCount}
-                disponibilidadesAtivas={disponibilidadesAtivas}
-                professoresComDisponibilidade={professoresComDisponibilidade}
-                horasTotaisDisponiveis={Math.round(horasTotaisDisponiveis)}
-                onSearch={handleSearch}
-                onFilterChange={handleFilterChange}
-                professores={professores}
-            /> */}
-
             {/* Tabela */}
             <div style={{
                 background: "#fff",
@@ -417,7 +414,7 @@ export default function DisponibilidadeTable() {
                                     color: "#9ca3af",
                                     fontSize: "14px"
                                 }}>
-                                    {searchTerm || filterProfessor || filterDiaSemana || filterStatus
+                                    {searchTerm || filters.professor || filters.diaSemana || filters.status
                                         ? "Nenhuma disponibilidade encontrada com os filtros aplicados."
                                         : "Nenhuma disponibilidade cadastrada."}
                                 </div>
@@ -721,9 +718,9 @@ export default function DisponibilidadeTable() {
                                 </div>
 
                                 <Pagination
-                                    currentPage={currentPage}
-                                    totalPages={totalPages}
-                                    onPageChange={(page) => setCurrentPage(page)}
+                                    // currentPage={currentPage}
+                                    // totalPages={totalPages}
+                                    // onPageChange={(page) => setCurrentPage(page)}
                                 />
                             </div>
                         )}
