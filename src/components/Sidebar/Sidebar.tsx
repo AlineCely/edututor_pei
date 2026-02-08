@@ -99,7 +99,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div style={{ textAlign: "center", marginBottom: "8px" }}>
         <img
-          src="../src/image/logoTEA.png"
+          src="../public/logoTEA.png"
           alt="VinculoTEA"
           style={{ width: "80px", height: "auto" }}
         />
