@@ -24,6 +24,10 @@ import TurmasForm from "../pages/TurmasForm";
 import Plataformas from "../pages/Plataformas";
 import Aulas from "../pages/Aulas";
 import AulasForm from "../pages/AulasForm";
+import Avaliacoes from "../pages/Avaliacoes";
+import AvaliacoesForm from "../pages/AvaliacoesForm";
+import Disponibilidade from "../pages/Disponibilidade";
+import DisponibilidadeForm from "../pages/DisponibilidadeForm";
 
 export default function AppRoutes() {
     return (
@@ -259,6 +263,54 @@ export default function AppRoutes() {
                     element={
                         <RequireAuth allowedRoles={["GESTOR"]}>
                             <AulasForm />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/avaliacoes"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <Avaliacoes />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/avaliacoes/novo"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <AvaliacoesForm />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/avaliacoes/:id/editar"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <AvaliacoesForm />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/disponibilidade"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <Disponibilidade />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/disponibilidade/novo"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <DisponibilidadeForm />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="/disponibilidade/:id/editar"
+                    element={
+                        <RequireAuth allowedRoles={["GESTOR"]}>
+                            <DisponibilidadeForm />
                         </RequireAuth>
                     }
                 />

@@ -3,6 +3,7 @@ import { FaUsers, FaChalkboardTeacher, FaMoneyBillWave } from "react-icons/fa";
 
 interface ProfissionaisHeaderProps {
   totalProfissionais: number;
+  total: number;
   profissionaisPorTipo: { [key: string]: number };
   valorMedioHora: number;
   onSearch: (term: string) => void;
@@ -10,7 +11,8 @@ interface ProfissionaisHeaderProps {
 }
 
 export default function ProfissionaisHeader({ 
-  totalProfissionais, 
+  totalProfissionais,
+  total, 
   profissionaisPorTipo,
   valorMedioHora,
   onSearch,
