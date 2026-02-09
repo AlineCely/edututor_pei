@@ -13,7 +13,6 @@ import {
   FaChartBar,
   FaChalkboardTeacher,
   FaSignOutAlt,
-  FaCog,
   FaUserFriends
 } from 'react-icons/fa';
 import type { UserRole } from "../../auth/roles";
@@ -26,7 +25,12 @@ export interface MenuItem {
   roles: UserRole[];
 }
 
-export default function Sidebar() {
+interface SidebarProps {
+  collapsed?: boolean;
+  // onToggle?: () => void;
+}
+
+export default function Sidebar({ collapsed = false }: SidebarProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
@@ -34,7 +38,6 @@ export default function Sidebar() {
     await logout();
     navigate("/login", { replace: true });
   }
-
 
   if (!user) return null;
   if (user?.role === "FAMILIA") return null;
@@ -81,43 +84,66 @@ export default function Sidebar() {
     }
   ];
 
+  const sidebarWidth = collapsed ? "80px" : "260px";
 
   return (
     <aside
       style={{
-        width: "240px",
+        width: sidebarWidth,
         background: "#ffffff",
         borderRight: "1px solid #eee",
-        padding: "20px 16px",
         color: "#333",
         height: "100vh",
         boxSizing: "border-box",
         display: "flex",
-        flexDirection: "column"
+        flexDirection: "column",
+        position: "fixed",
+        left: 0,
+        top: 0,
+        zIndex: 1000,
+        transition: "width 0.3s ease",
+        overflow: "hidden"
       }}
     >
       {/* Logo */}
-      <div style={{ textAlign: "center", marginBottom: "8px" }}>
-        <img
-          src="/logoTEA.png"
-          alt="VinculoTEA"
-          style={{ width: "80px", height: "auto" }}
-        />
-        {/* <div style={{
-          fontSize: "12px",
-          color: "#666",
-          fontWeight: "500",
-          marginTop: "5px"
-        }}>
-          Plataforma Gestão Inclusiva - PGE
-        </div> */}
+      <div style={{ 
+        textAlign: "center", 
+        marginBottom: "8px",
+        padding: "20px 16px 16px",
+        borderBottom: collapsed ? "none" : "1px solid #eee"
+      }}>
+        {collapsed ? (
+          <img
+            src="/logoTEA.png"
+            alt="VinculoTEA"
+            style={{ width: "50px", height: "auto", borderRadius: "8px" }}
+          />
+        ) : (
+          <>
+            <img
+              src="/logoTEA.png"
+              alt="VinculoTEA"
+              style={{ width: "80px", height: "auto" }}
+            />
+            <div style={{
+              fontSize: "11px",
+              color: "#666",
+              fontWeight: "500",
+              marginTop: "5px"
+            }}>
+              Plataforma Gestão
+            </div>
+          </>
+        )}
       </div>
+
+      
 
       {/* Menu Categories */}
       <div style={{
         flex: 1,
         overflowY: "auto",
-        paddingRight: "4px"
+        padding: "16px 8px"
       }}>
         {menuCategories.map((category, index) => {
           // Filtrar itens baseados na role do usuário
@@ -129,9 +155,9 @@ export default function Sidebar() {
           if (filteredItems.length === 0) return null;
 
           return (
-            <div key={index} style={{ marginBottom: "24px" }}>
-              {/* Título da Categoria (exceto para Dashboard) */}
-              {category.title !== "Dashboard" && (
+            <div key={index} style={{ marginBottom: collapsed ? "16px" : "24px" }}>
+              {/* Título da Categoria (só mostra se não estiver collapsed) */}
+              {!collapsed && category.title !== "Dashboard" && (
                 <div style={{
                   fontSize: "11px",
                   fontWeight: "600",
@@ -139,7 +165,8 @@ export default function Sidebar() {
                   textTransform: "uppercase",
                   letterSpacing: "0.5px",
                   marginBottom: "8px",
-                  paddingLeft: "8px"
+                  paddingLeft: collapsed ? "0" : "8px",
+                  textAlign: collapsed ? "center" : "left"
                 }}>
                   {category.title}
                 </div>
@@ -158,15 +185,19 @@ export default function Sidebar() {
                       style={({ isActive }) => ({
                         display: "flex",
                         alignItems: "center",
-                        padding: "12px 16px",
+                        padding: collapsed ? "12px" : "12px 16px",
                         marginBottom: "4px",
                         borderRadius: "8px",
-                        fontSize: "14px",
+                        fontSize: collapsed ? "12px" : "14px",
                         fontWeight: "500",
                         textDecoration: "none",
                         color: isActive ? "#2563eb" : "#333",
                         backgroundColor: isActive ? "#f0f7ff" : "transparent",
-                        transition: "background-color 0.2s, color 0.2s"
+                        transition: "background-color 0.2s, color 0.2s",
+                        justifyContent: collapsed ? "center" : "flex-start",
+                        flexDirection: collapsed ? "column" : "row",
+                        gap: collapsed ? "4px" : "12px",
+                        textAlign: collapsed ? "center" : "left"
                       })}
                       onMouseEnter={(e) => {
                         if (!e.currentTarget.className.includes("active")) {
@@ -181,8 +212,7 @@ export default function Sidebar() {
                     >
                       <span
                         style={{
-                          marginRight: "12px",
-                          fontSize: "16px",
+                          fontSize: collapsed ? "18px" : "16px",
                           color: "inherit",
                           display: "flex",
                           alignItems: "center"
@@ -190,7 +220,16 @@ export default function Sidebar() {
                       >
                         {item.icon}
                       </span>
-                      {item.name}
+                      {!collapsed && item.name}
+                      {collapsed && (
+                        <span style={{
+                          fontSize: "10px",
+                          fontWeight: "500",
+                          marginTop: "2px"
+                        }}>
+                          {item.name.split(' ')[0]}
+                        </span>
+                      )}
                     </NavLink>
                   </li>
                 ))}
@@ -201,72 +240,115 @@ export default function Sidebar() {
       </div>
 
       {/* Footer - Logout e Perfil */}
-      <div
-        style={{
-          paddingTop: "20px",
-          borderTop: "1px solid #eee",
-          marginTop: "auto"
-        }}
-      >
-        {/* Informações do Usuário */}
-        <div style={{
-          padding: "12px 16px",
-          marginBottom: "12px",
-          backgroundColor: "#f8fafc",
-          borderRadius: "8px",
-          fontSize: "13px"
-        }}>
-          <div style={{ fontWeight: "600", color: "#333", marginBottom: "4px" }}>
-            {user.name}
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", color: "#666" }}>
-            <span>{user.role === "GESTOR" ? "Gestor" : "Profissional"}</span>
-            <span style={{
-              backgroundColor: "#f0f7ff",
-              color: "#2563eb",
-              padding: "2px 8px",
-              borderRadius: "12px",
-              fontSize: "11px",
-              fontWeight: "600"
-            }}>
-              {user.role === "GESTOR" ? "Admin" : "Prof"}
-            </span>
-          </div>
-        </div>
-
-        {/* Botão Logout */}
-        <button
-          onClick={handleLogout}
+      {!collapsed && (
+        <div
           style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "12px 16px",
-            borderRadius: "8px",
-            border: "1px solid #eee",
-            background: "transparent",
-            color: "#666",
-            fontSize: "14px",
-            fontWeight: "500",
-            cursor: "pointer",
-            transition: "all 0.2s"
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.background = "#fee2e2";
-            e.currentTarget.style.color = "#dc2626";
-            e.currentTarget.style.borderColor = "#fecaca";
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color = "#666";
-            e.currentTarget.style.borderColor = "#eee";
+            padding: "16px",
+            borderTop: "1px solid #eee",
+            marginTop: "auto"
           }}
         >
-          <FaSignOutAlt style={{ marginRight: "10px" }} />
-          Sair
-        </button>
-      </div>
+          {/* Informações do Usuário */}
+          <div style={{
+            padding: "12px 16px",
+            marginBottom: "12px",
+            backgroundColor: "#f8fafc",
+            borderRadius: "8px",
+            fontSize: "13px"
+          }}>
+            <div style={{ fontWeight: "600", color: "#333", marginBottom: "4px" }}>
+              {user.name}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", color: "#666" }}>
+              <span>{user.role === "GESTOR" ? "Gestor" : "Profissional"}</span>
+              <span style={{
+                backgroundColor: "#f0f7ff",
+                color: "#2563eb",
+                padding: "2px 8px",
+                borderRadius: "12px",
+                fontSize: "11px",
+                fontWeight: "600"
+              }}>
+                {user.role === "GESTOR" ? "Admin" : "Prof"}
+              </span>
+            </div>
+          </div>
+
+          {/* Botão Logout */}
+          <button
+            onClick={handleLogout}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "12px 16px",
+              borderRadius: "8px",
+              border: "1px solid #eee",
+              background: "transparent",
+              color: "#666",
+              fontSize: "14px",
+              fontWeight: "500",
+              cursor: "pointer",
+              transition: "all 0.2s"
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = "#fee2e2";
+              e.currentTarget.style.color = "#dc2626";
+              e.currentTarget.style.borderColor = "#fecaca";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = "#666";
+              e.currentTarget.style.borderColor = "#eee";
+            }}
+          >
+            <FaSignOutAlt style={{ marginRight: "10px" }} />
+            Sair
+          </button>
+        </div>
+      )}
+
+      {/* Versão collapsed do footer */}
+      {collapsed && (
+        <div
+          style={{
+            padding: "16px 8px",
+            borderTop: "1px solid #eee",
+            marginTop: "auto"
+          }}
+        >
+          <button
+            onClick={handleLogout}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "12px",
+              borderRadius: "8px",
+              border: "1px solid #eee",
+              background: "transparent",
+              color: "#666",
+              fontSize: "20px",
+              cursor: "pointer",
+              transition: "all 0.2s"
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = "#fee2e2";
+              e.currentTarget.style.color = "#dc2626";
+              e.currentTarget.style.borderColor = "#fecaca";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = "#666";
+              e.currentTarget.style.borderColor = "#eee";
+            }}
+          >
+            <FaSignOutAlt />
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
